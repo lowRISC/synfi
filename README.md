@@ -8,9 +8,14 @@ faults into these parts. The effectiveness of the injected faults are
 evaluated and the tool verifies that the installed fault countermeasures detect 
 the faults.
 
-## Usage
 The framework consists of a preprocessing phase and a fault injection and 
 evaluation phase. 
+
+## Usage
+Install python3 and the corresponding packages:
+```console
+$ pip3 install -r requirements.txt
+```
 
 The `examples` directory contains the netlist for the 
 [aes_cipher_control](https://github.com/lowRISC/opentitan/blob/master/hw/ip/aes/rtl/aes_cipher_control.sv) 
