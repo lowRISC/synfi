@@ -22,7 +22,13 @@ def add_edges(nodes, connections, wires, graph):
     for connection in connections:
         wire = connection[2]
         wire_name = wires[wire]
-        graph.add_edge(connection[0], connection[1], name=wire_name)
+        out_pin = nodes[connection[0]].outputs[wire]
+        in_pin = nodes[connection[1]].inputs[wire]
+        graph.add_edge(connection[0],
+                       connection[1],
+                       name=wire_name,
+                       out_pin=out_pin,
+                       in_pin=in_pin)
 
 
 def build_graph(nodes, connections, wires, graph):

@@ -88,15 +88,15 @@ def parse_nodes(module):
 
     for name, node in module["cells"].items():
         node_type = node["type"]
-        nodes_in = []
-        nodes_out = []
+        nodes_in = {}
+        nodes_out = {}
 
         for port, connection in node["connections"].items():
             if (node["port_directions"][port] == "input"):
-                nodes_in.append((port, connection[0]))
+                nodes_in[connection[0]] = port
                 in_wires[connection[0]].append(name)
             else:
-                nodes_out.append((port, connection[0]))
+                nodes_out[connection[0]] = port
                 out_wires[connection[0]] = name
 
         nodes[name] = Node(name=name,
@@ -142,8 +142,8 @@ def add_pins(ports, nodes, in_wires, out_wires):
     """
 
     for port_name, port in ports.items():
-        port_in_pin = []
-        port_out_pin = []
+        port_in_pin = {}
+        port_out_pin = {}
         for pin in port.pins:
             pin_name = port_name + "_" + str(pin)
             wire_name = "wire_" + port_name + "_" + str(pin)
@@ -154,19 +154,19 @@ def add_pins(ports, nodes, in_wires, out_wires):
                 out_wires[wire_name] = port_name
                 inp_pin = wire_name
                 outp_pin = pin
-                port_in_pin.append(pin_name)
+                port_out_pin[wire_name] = "O"
             else:
                 in_wires[pin].append(pin_name)
                 out_wires[wire_name] = pin_name
                 in_wires[wire_name].append(port_name)
                 inp_pin = pin
                 outp_pin = wire_name
-                port_out_pin.append(pin_name)
+                port_in_pin[wire_name] = "I"
             # Add pin to node dict.
             nodes[pin_name] = Node(name=pin_name,
                                    type=port.type,
-                                   inputs=inp_pin,
-                                   outputs=outp_pin,
+                                   inputs={inp_pin: "I"},
+                                   outputs={outp_pin: "O"},
                                    node_color="black")
         # Add port to node dict.
         nodes[port_name] = Node(name=port_name,
@@ -195,9 +195,9 @@ def add_nodes(module, ports):
     out_wires = {}
 
     # Add null/one nodes for gates with a 0/1 as input.
-    nodes["null"] = Node("null", "null_node", [], ['0'], "black")
+    nodes["null"] = Node("null", "null_node", {}, {'0': "O"}, "black")
     out_wires['0'] = "null"
-    nodes["one"] = Node("one", "one_node", [], ['1'], "black")
+    nodes["one"] = Node("one", "one_node", {}, {'1': "I"}, "black")
     out_wires['1'] = "one"
 
     # Read the netlist and add nodes.
@@ -205,8 +205,6 @@ def add_nodes(module, ports):
 
     # Create pins for each port and add to dict of nodes.
     add_pins(ports, nodes, in_wires, out_wires)
-    print(len(in_wires))
-    print(len(out_wires))
 
     # Connect the nodes.
     connections = create_connections(in_wires, out_wires)
