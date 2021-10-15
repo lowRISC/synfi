@@ -86,12 +86,27 @@ def ap_check_file_exists(file_path):
         file_path: The file path.
 
     Returns:
-        The fil epath.   
+        The file path.   
     """
-    if not (os.path.isfile(file_path) or os.path.exists(file_path)):
-        raise argparse.ArgumentTypeError("Path '%s' does not exist" %
+    if not os.path.isfile(file_path):
+        raise argparse.ArgumentTypeError("File '%s' does not exist" %
                                          file_path)
     return file_path
+
+
+def ap_check_dir_exists(path):
+    """Verifies that the provided path is valid
+
+    Args:
+        path: The path.
+
+    Returns:
+        The file path.   
+    """
+    if not os.path.exists(os.path.dirname(path)):
+        raise argparse.ArgumentTypeError("Path '%s' does not exist" %
+                                         os.path.dirname(path))
+    return path
 
 
 def print_ports(ports):

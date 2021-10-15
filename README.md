@@ -24,7 +24,7 @@ module synthesized with the
 Yosys flow. To start the preprocessing phase for this  example netlist, create 
 the `output` directory and invoke the parser:
 ```console
-$ ./parse.py -j examples/circuit.json -m aes_cipher_control -o output
+$ ./parse.py -j examples/circuit.json -m aes_cipher_control -o output/circuit.pickle
 ```
 The parser preprocesses the provided netlist and creates a directed graph, which
 is then used by the fault injector to evaluate the effects of the induced 

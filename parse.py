@@ -19,7 +19,8 @@ This tool parses the JSON netlist created by Yosys or Synopsys and creates
 a graph, which is later used for the fault injections.
 
 Typical usage:
->>> ./parse.py -j examples/circuit.json -m aes_cipher_control -o output
+>>> ./parse.py -j examples/circuit.json -m aes_cipher_control 
+               -o output/circuit.pickle
 """
 
 
@@ -244,10 +245,10 @@ def parse_arguments():
                         help="Path of the json netlist")
     parser.add_argument("--version",
                         action="store_true",
-                        help="Show version and exit")
+                        help="Show version and exit.")
     parser.add_argument("--debug",
                         action="store_true",
-                        help="Write graph as a .dot file.")
+                        help="Write graph as a .dot file")
     parser.add_argument("-m",
                         "--module",
                         dest="module",
@@ -255,10 +256,10 @@ def parse_arguments():
                         help="The module to analyze")
     parser.add_argument("-o",
                         "--output",
-                        dest="out_dir",
-                        type=helpers.ap_check_file_exists,
+                        dest="outfile",
+                        type=helpers.ap_check_dir_exists,
                         required=True,
-                        help="The output directory")
+                        help="The output graph file")
     args = parser.parse_args()
 
     if args.version:
@@ -267,15 +268,17 @@ def parse_arguments():
     return args
 
 
-def write_circuit(graph, dir, debug=False):
+def write_circuit(graph, outfile, debug=False):
     """ Writes the circuit to a pickle file.
 
     Args:
         graph: The graph of the netlist.
+        outfile: The file path and name.
         debug: If true, write the graph to a .dot file.
     """
-    if debug: graph_builder.write_graph(graph, dir, "circuit_full")
-    with open(dir + "/circuit_full.pickle", "wb") as f:
+    file_name = os.path.splitext(outfile)[0]
+    if debug: graph_builder.write_graph(graph, file_name + ".dot")
+    with open(outfile, "wb") as f:
         pickle.dump(graph, f)
 
 
@@ -297,7 +300,7 @@ def main():
     helpers.print_graph_stat(graph)
 
     # Write the circuit to the output directory in the pickle format.
-    write_circuit(graph, args.out_dir, args.debug)
+    write_circuit(graph, args.outfile, args.debug)
 
     tstp_end = time.time()
     print("parse.py successful (%.2fs)" % (tstp_end - tstp_begin))

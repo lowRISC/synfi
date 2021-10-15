@@ -40,12 +40,11 @@ def build_graph(nodes, connections, wires, graph):
     add_edges(nodes, connections, wires, graph)
 
 
-def write_graph(graph, path, file_name):
+def write_graph(graph, file_name):
     """Dumps the graph of the circuit as a .dot file.
 
     Args:
         graph: The networkx graph.
-        path: The path to store the .dot file.
         file_name: The filename.
     """
     dot = "strict digraph  {\n"
@@ -87,5 +86,5 @@ def write_graph(graph, path, file_name):
     dot += faulty_circuit_dot + "}\n"
     dot += outputs_dot + "}\n"
     dot += "}\n"
-    with open(path + "/" + file_name + ".dot", "w") as f:
+    with open(file_name, "w") as f:
         f.write(dot)
