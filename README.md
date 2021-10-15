@@ -22,4 +22,5 @@ the `output` directory and invoke the parser:
 $ ./parse.py -j examples/circuit.json -m aes_cipher_control -o output
 ```
 The parser preprocesses the provided netlist and creates a directed graph, which
-is then used by the fault injector to evaluate the effects of induced faults.
+is then used by the fault injector to evaluate the effects of the induced 
+faults.
