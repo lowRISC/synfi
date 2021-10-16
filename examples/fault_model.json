@@ -1,0 +1,21 @@
+{
+  "fimodels": {
+    "rnd_ctr": {
+      "simultaneous_faults": 2,
+      "nodes_in": ["$auto$simplemap.cc:527:simplemap_adff_sdff$14916", "$auto$simplemap.cc:559:simplemap_adffe_sdffe_sdffce$14209"],
+      "nodes_out": ["$auto$simplemap.cc:527:simplemap_adff_sdff$14916", "$auto$simplemap.cc:559:simplemap_adffe_sdffe_sdffce$14209", "rnd_ctr_err_sum(1)"],
+      "node_fault_mapping": {
+        "NAND2_X1": [ "NOR2_X1", "OR2_X1", "XOR2_X1"],
+        "NOR2_X1":  [ "NAND2_X1", "OR2_X1", "XOR2_X1"],
+        "AND2_X1": [ "NAND2_X1", "NOR2_X1", "XOR2_X1"],
+        "XOR2_X1": [ "NAND2_X1", "NOR2_X1", "OR2_X1"]
+      },
+      "fault_locations": [
+        "$abc$16613$auto$blifparse.cc:381:parse_blif$16788",
+        "$abc$16613$auto$blifparse.cc:381:parse_blif$16795",
+        "$abc$16613$auto$blifparse.cc:381:parse_blif$16741",
+        "$abc$16613$auto$blifparse.cc:381:parse_blif$16748"
+      ]
+    }
+  }
+ }

@@ -28,4 +28,8 @@ $ ./parse.py -j examples/circuit.json -m aes_cipher_control -o output/circuit.pi
 ```
 The parser preprocesses the provided netlist and creates a directed graph, which
 is then used by the fault injector to evaluate the effects of the induced 
-faults.
+faults. To run the fault injector with the example netlist and the example fault
+model, execute the fi_injector tool:
+```console
+$ ./fi_injector.py -f examples/fault_model.json -p output/circuit.pickle
+```
