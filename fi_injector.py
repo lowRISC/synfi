@@ -161,10 +161,26 @@ def extract_graph_between_nodes(graph, node_in, node_out):
         node
         for path in paths_between_generator for node in path
     }
-    graph_in_out_node = nx.DiGraph(graph.subgraph(nodes_between_set))
+    graph_in_out_node = graph.subgraph(nodes_between_set)
 
     return graph_in_out_node
 
+def rename_nodes(graph, suffix):
+    """ Rename all nodes of the graph by appending a suffix. 
+    
+    Args:
+        graph: The networkx digraph of the circuit.
+        suffix: The suffic, which is appended to the original node name.
+    
+    Returns:
+        The graph with the renamed nodes.
+    """
+    name_mapping = {}
+    for node,node_attribute in graph.nodes(data=True):
+        name_mapping[node] = node + suffix
+        node_attribute["node"].name = node_attribute["node"].name + suffix
+    graph = nx.relabel_nodes(graph, name_mapping)
+    return graph
 
 def extract_graph(graph, fi_model):
     """ Extract the subgraph containing all comb. and seq. logic of interest. 
@@ -185,8 +201,15 @@ def extract_graph(graph, fi_model):
     # Extract all graphs between the given nodes.
     for node_in in fi_model["nodes_in"]:
         for node_out in fi_model["nodes_out"]:
-            extracted_graphs.append(
-                extract_graph_between_nodes(graph, node_in, node_out))
+            # Extract the target graph.
+            subgraph = copy.deepcopy(graph)
+            subgraph = extract_graph_between_nodes(subgraph, node_in, node_out)
+            # Rename the nodes to break dependencies between target graphs.
+            rename_string = ("_fault_" + node_in.split("$")[-1] + "_" 
+                            + node_out.split("$")[-1])        
+            subgraph = rename_nodes(subgraph, rename_string)
+            # Append the target graph to the list of graphs.
+            extracted_graphs.append(subgraph)
 
     # Merge all graphs into the target graph.
     extracted_graph = nx.compose_all(extracted_graphs)
