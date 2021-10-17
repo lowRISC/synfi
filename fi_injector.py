@@ -13,6 +13,7 @@ import ray
 
 import graph_builder
 import helpers
+from helpers import Node
 
 """Part of the fault injection framework for the OpenTitan.
 
@@ -165,22 +166,102 @@ def extract_graph_between_nodes(graph, node_in, node_out):
 
     return graph_in_out_node
 
+
 def rename_nodes(graph, suffix):
     """ Rename all nodes of the graph by appending a suffix. 
     
     Args:
         graph: The networkx digraph of the circuit.
         suffix: The suffic, which is appended to the original node name.
-    
+
     Returns:
-        The graph with the renamed nodes.
+        The subgraph with the renamed nodes.
     """
     name_mapping = {}
-    for node,node_attribute in graph.nodes(data=True):
+    for node, node_attribute in graph.nodes(data=True):
         name_mapping[node] = node + suffix
         node_attribute["node"].name = node_attribute["node"].name + suffix
     graph = nx.relabel_nodes(graph, name_mapping)
+
     return graph
+
+
+def reconnect_node(graph, node, node_new, in_out):
+    """ Reconnect a node in the graph.
+
+    Reconnects the node "node" in the graph by removing the input/output edges
+    and add a new edge for the node "node_new".
+    
+    Args:
+        graph: The networkx digraph of the circuit.
+        node: The node to be reconnected.
+        node_new: The new node.
+        in_out: Replace input or output edge?
+    Returns:
+        The subgraph with the reconnected node.
+    """
+    remove_edges = []
+
+    if in_out == "out":
+        # Find all output edges of node.
+        for edge in graph.out_edges(graph.nodes[node]["node"].name):
+            remove_edges.append((edge[0], edge[1]))
+        # Remove the output edges and reconnect with the new node.
+        for remove_edge in remove_edges:
+            graph.remove_edge(remove_edge[0], remove_edge[1])
+            graph.add_edge(node_new, remove_edge[1], name="")
+    else:
+        #find input edges of register_node and add to list
+        for edge in graph.in_edges(graph.nodes[node]["node"].name):
+            remove_edges.append((edge[0], edge[1]))
+
+        for remove_edge in remove_edges:
+            graph.remove_edge(remove_edge[0], remove_edge[1])
+            graph.add_edge(remove_edge[0], node_new, name="")
+
+    return graph
+
+
+def set_in_out_nodes(graph, node_in, node_out, rename_string):
+    """ Rename all nodes of the graph by appending a suffix. 
+    
+    Args:
+        graph: The networkx digraph of the circuit.
+        suffix: The suffic, which is appended to the original node name.
+    Returns:
+        The subgraph with the input and output nodes.
+    """
+    node_in_name = node_in + rename_string
+    node_out_name = node_out + rename_string
+
+    if (node_in_name not in graph) or (node_out_name not in graph):
+        return graph
+
+    if node_in == node_out:
+        # If we have a common in/out node, split this node into two nodes.
+        node_in_name_mod = node_in + "_in" + rename_string
+        node_out_name_mod = node_out + "_out" + rename_string
+        graph.add_node(
+            node_in_name_mod,
+            **{"node": Node(node_in_name_mod, "in_node", {}, {}, "brown")})
+        graph.add_node(
+            node_out_name_mod,
+            **{"node": Node(node_out_name_mod, "out_node", {}, {}, "yellow")})
+        graph.nodes[node_in_name]["node"].outputs = graph.nodes[node_in_name][
+            "node"].outputs
+        graph.nodes[node_out_name]["node"].inputs = graph.nodes[node_out_name][
+            "node"].inputs
+        # Connect the new nodes with the corresponding edges.
+        graph = reconnect_node(graph, node_in_name, node_in_name_mod, "out")
+        graph = reconnect_node(graph, node_out_name, node_out_name_mod, "in")
+    else:
+        # Set type and color of the input and output node.
+        graph.nodes[node_in_name]["node"].type = "in_node"
+        graph.nodes[node_in_name]["node"].node_color = "brown"
+        graph.nodes[node_out_name]["node"].type = "out_node"
+        graph.nodes[node_out_name]["node"].node_color = "yellow"
+    return graph
+
 
 def extract_graph(graph, fi_model):
     """ Extract the subgraph containing all comb. and seq. logic of interest. 
@@ -205,9 +286,14 @@ def extract_graph(graph, fi_model):
             subgraph = copy.deepcopy(graph)
             subgraph = extract_graph_between_nodes(subgraph, node_in, node_out)
             # Rename the nodes to break dependencies between target graphs.
-            rename_string = ("_fault_" + node_in.split("$")[-1] + "_" 
-                            + node_out.split("$")[-1])        
+            rename_string = ("_" + node_in.split("$")[-1] + "_" +
+                             node_out.split("$")[-1])
             subgraph = rename_nodes(subgraph, rename_string)
+            # Set input and output node of the target graphs.
+            subgraph = set_in_out_nodes(subgraph, node_in, node_out,
+                                        rename_string)
+            # Add inputs node to the target graphs.
+
             # Append the target graph to the list of graphs.
             extracted_graphs.append(subgraph)
 
