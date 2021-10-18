@@ -172,7 +172,7 @@ def rename_nodes(graph, suffix):
     
     Args:
         graph: The networkx digraph of the circuit.
-        suffix: The suffic, which is appended to the original node name.
+        suffix: The suffix, which is appended to the original node name.
 
     Returns:
         The subgraph with the renamed nodes.
@@ -227,7 +227,9 @@ def set_in_out_nodes(graph, node_in, node_out, rename_string):
     
     Args:
         graph: The networkx digraph of the circuit.
-        suffix: The suffic, which is appended to the original node name.
+        node_in: The input node.
+        node_out: The output node.
+        rename_string: The suffix, which is appended to the original node name.
     Returns:
         The subgraph with the input and output nodes.
     """
@@ -242,11 +244,15 @@ def set_in_out_nodes(graph, node_in, node_out, rename_string):
         node_in_name_mod = node_in + "_in" + rename_string
         node_out_name_mod = node_out + "_out" + rename_string
         graph.add_node(
-            node_in_name_mod,
-            **{"node": Node(node_in_name_mod, "in_node", {}, {}, "brown")})
+            node_in_name_mod, **{
+                "node": Node(node_in_name_mod, node_in, "in_node", {}, {},
+                             "brown")
+            })
         graph.add_node(
-            node_out_name_mod,
-            **{"node": Node(node_out_name_mod, "out_node", {}, {}, "yellow")})
+            node_out_name_mod, **{
+                "node":
+                Node(node_out_name_mod, node_out, "out_node", {}, {}, "yellow")
+            })
         graph.nodes[node_in_name]["node"].outputs = graph.nodes[node_in_name][
             "node"].outputs
         graph.nodes[node_out_name]["node"].inputs = graph.nodes[node_out_name][
@@ -261,6 +267,63 @@ def set_in_out_nodes(graph, node_in, node_out, rename_string):
         graph.nodes[node_out_name]["node"].type = "out_node"
         graph.nodes[node_out_name]["node"].node_color = "yellow"
     return graph
+
+
+def add_in_nodes(graph, subgraph, in_node, rename_string):
+    """ Add the missing input nodes to the target subgraph.
+
+    The extracted graph is a subgraph of the original graph only
+    containing the fault sensitive part of the circuit. However, the input nodes
+    of the gates in this subgraph are missing and added in this function.
+    
+    Args:
+        graph: The original digraph of the circuit.
+        subgraph: The extracted target graph.
+        in_node: The input node of the extracted target graph.
+        rename_string: The suffix, which is appended to the original node name.
+    Returns:
+        The subgraph augmented with the input nodes.
+    """
+
+    subgraph_in_nodes = copy.deepcopy(subgraph)
+    orig_graph = copy.deepcopy(graph)
+    # Loop over all nodes of the target subgraph and add missing inp. nodes.
+    for node, node_attribute in subgraph.nodes(data=True):
+        if (len(subgraph.in_edges(node)) != len(node_attribute["node"].inputs)
+            ) and (node_attribute["node"].type !=
+                   ("in_node" or "out_node"
+                    or "input")) and (node != in_node + rename_string):
+            # Get all in edges of the subgraph.
+            subgraph_in_edges = subgraph.in_edges(node)
+            subgraph_in_edges_name = []
+            for edge in subgraph_in_edges:
+                subgraph_in_edges_name.append(
+                    subgraph.nodes[edge[0]]["node"].parent_name)
+            # Determine missing in edges of the subgraph.
+            current_node = node_attribute["node"].parent_name
+            for edge in orig_graph.in_edges(current_node):
+                if edge[0] not in subgraph_in_edges_name:
+                    # Name of the new node.
+                    node_name = edge[0] + rename_string
+                    # Edge data (name, in_pin, out_pin) of the original edge.
+                    edge_data = orig_graph.get_edge_data(edge[0], edge[1])
+                    # The node attribute of the original graph.
+                    node_attr = orig_graph.nodes[edge[0]]["node"]
+                    # Add new node and connect.
+                    subgraph_in_nodes.add_node(node_name,
+                                               **{"node": node_attr})
+                    subgraph_in_nodes.add_edge(node_name,
+                                               node,
+                                               name=(edge_data["name"]),
+                                               out_pin=(edge_data["out_pin"]),
+                                               in_pin=(edge_data["in_pin"]))
+                    # Modify the attributes of the new node.
+                    subgraph_in_nodes.nodes[node_name][
+                        "node"].node_color = "blue"
+                    subgraph_in_nodes.nodes[node_name]["node"].type = "input"
+                    subgraph_in_nodes.nodes[node_name]["node"].name = node_name
+
+    return subgraph_in_nodes
 
 
 def extract_graph(graph, fi_model):
@@ -293,10 +356,9 @@ def extract_graph(graph, fi_model):
             subgraph = set_in_out_nodes(subgraph, node_in, node_out,
                                         rename_string)
             # Add inputs node to the target graphs.
-
+            subgraph = add_in_nodes(graph, subgraph, node_in, rename_string)
             # Append the target graph to the list of graphs.
             extracted_graphs.append(subgraph)
-
     # Merge all graphs into the target graph.
     extracted_graph = nx.compose_all(extracted_graphs)
 

@@ -25,8 +25,9 @@ def show_and_exit(clitool, packages):
 
 class Node:
     """Class for a node in the circuit."""
-    def __init__(self, name, type, inputs, outputs, node_color):
+    def __init__(self, name, parent_name, type, inputs, outputs, node_color):
         self.name = name
+        self.parent_name = parent_name
         self.type = type
         self.inputs = inputs
         self.outputs = outputs

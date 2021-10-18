@@ -100,6 +100,7 @@ def parse_nodes(module):
                 out_wires[connection[0]] = name
 
         nodes[name] = Node(name=name,
+                           parent_name = name,
                            type=node_type,
                            inputs=nodes_in,
                            outputs=nodes_out,
@@ -164,12 +165,14 @@ def add_pins(ports, nodes, in_wires, out_wires):
                 port_in_pin[wire_name] = "I"
             # Add pin to node dict.
             nodes[pin_name] = Node(name=pin_name,
+                                   parent_name = pin_name,
                                    type=port.type,
                                    inputs={inp_pin: "I"},
                                    outputs={outp_pin: "O"},
                                    node_color="black")
         # Add port to node dict.
         nodes[port_name] = Node(name=port_name,
+                                parent_name = port_name,
                                 type=port.type,
                                 inputs=port_in_pin,
                                 outputs=port_out_pin,
@@ -195,9 +198,9 @@ def add_nodes(module, ports):
     out_wires = {}
 
     # Add null/one nodes for gates with a 0/1 as input.
-    nodes["null"] = Node("null", "null_node", {}, {'0': "O"}, "black")
+    nodes["null"] = Node("null", "null", "null_node", {}, {'0': "O"}, "black")
     out_wires['0'] = "null"
-    nodes["one"] = Node("one", "one_node", {}, {'1': "I"}, "black")
+    nodes["one"] = Node("one", "null", "one_node", {}, {'1': "I"}, "black")
     out_wires['1'] = "one"
 
     # Read the netlist and add nodes.
