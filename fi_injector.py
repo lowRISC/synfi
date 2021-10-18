@@ -15,6 +15,7 @@ import ray
 import graph_builder
 import helpers
 from helpers import Node
+from injector_class import FiInjector
 
 """Part of the fault injection framework for the OpenTitan.
 
@@ -166,25 +167,6 @@ def extract_graph_between_nodes(graph, node_in, node_out):
     graph_in_out_node = graph.subgraph(nodes_between_set)
 
     return graph_in_out_node
-
-
-def rename_nodes(graph, suffix):
-    """ Rename all nodes of the graph by appending a suffix. 
-    
-    Args:
-        graph: The networkx digraph of the circuit.
-        suffix: The suffix, which is appended to the original node name.
-
-    Returns:
-        The subgraph with the renamed nodes.
-    """
-    name_mapping = {}
-    for node, node_attribute in graph.nodes(data=True):
-        name_mapping[node] = node + suffix
-        node_attribute["node"].name = node_attribute["node"].name + suffix
-    graph = nx.relabel_nodes(graph, name_mapping)
-
-    return graph
 
 
 def reconnect_node(graph, node, node_new, in_out):
@@ -377,8 +359,6 @@ def extract_graph(graph, fi_model):
     Returns:
         The extracted subgraph of the original graph.
     """
-    print("Extracting the target graph...")
-
     extracted_graphs = []
 
     # Extract all graphs between the given nodes.
@@ -390,7 +370,7 @@ def extract_graph(graph, fi_model):
             # Rename the nodes to break dependencies between target graphs.
             rename_string = ("_" + node_in.split("$")[-1] + "_" +
                              node_out.split("$")[-1])
-            subgraph = rename_nodes(subgraph, rename_string)
+            subgraph = helpers.rename_nodes(subgraph, rename_string)
             # Set input and output node of the target graphs.
             subgraph = set_in_out_nodes(subgraph, node_in, node_out,
                                         rename_string)
@@ -400,11 +380,9 @@ def extract_graph(graph, fi_model):
             extracted_graphs.append(subgraph)
     # Merge all graphs into the target graph.
     extracted_graph = nx.compose_all(extracted_graphs)
-    graph_builder.write_graph(extracted_graph, "test.dot")
     # Connect the subgraphs in the target graph.
     extracted_graph = connect_graphs(graph, extracted_graph)
-    graph_builder.write_graph(extracted_graph, "test_after.dot")
-    print(helpers.header)
+
     return extracted_graph
 
 
@@ -421,12 +399,21 @@ def handle_fault_model(graph, fi_model_name, fi_model):
         fi_model_name: The name of the active fault model.
         fi_model: The active fault model
     """
+    print("Injecting faults into " + fi_model_name + " ...")
 
     # Extract the target graph from the circuit.
     target_graph = extract_graph(graph, fi_model)
 
     # Determine all possible fault location combinations.
     fault_locations = fault_combinations(graph, fi_model)
+
+    # Perform the attack on the target graph using the fault locations.
+    # ToDo: rewrite to work with ray.
+    for fault_location in fault_locations:
+        injector = FiInjector(fi_model_name, target_graph, fault_location)
+        injector.perform_attack()
+
+    print(helpers.header)
 
 
 def main():

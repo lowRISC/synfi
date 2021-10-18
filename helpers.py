@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 
+import networkx as nx
 import numpy as np
 import pkg_resources
 
@@ -41,6 +42,25 @@ class Port:
         self.pins = pins
         self.type = type
         self.length = length
+
+
+def rename_nodes(graph, suffix):
+    """ Rename all nodes of the graph by appending a suffix. 
+    
+    Args:
+        graph: The networkx digraph of the circuit.
+        suffix: The suffix, which is appended to the original node name.
+
+    Returns:
+        The subgraph with the renamed nodes.
+    """
+    name_mapping = {}
+    for node, node_attribute in graph.nodes(data=True):
+        name_mapping[node] = node + suffix
+        node_attribute["node"].name = node_attribute["node"].name + suffix
+    graph = nx.relabel_nodes(graph, name_mapping)
+
+    return graph
 
 
 def print_graph_stat(graph):
