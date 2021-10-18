@@ -7,6 +7,7 @@ import json
 import os
 import pickle
 import time
+from typing import DefaultDict
 
 import networkx as nx
 import ray
@@ -326,6 +327,44 @@ def add_in_nodes(graph, subgraph, in_node, rename_string):
     return subgraph_in_nodes
 
 
+def connect_graphs(graph, subgraph):
+    """ Connect the subgraphs in the target graph. 
+
+    The target graph consists of several subgraphs with a input and output node.
+    This function connects these in/out nodes between the subgraphs.
+    
+    Args:
+        graph: The original digraph of the circuit.
+        subgraph: The extracted target graph.
+    Returns:
+        The extracted target graph with the connected subgraphs.
+    """
+    subgraph_connected = copy.deepcopy(subgraph)
+    in_nodes = DefaultDict(list)
+    out_nodes = DefaultDict(list)
+    # Iterate over all nodes in the subgraphs and collect the input and output
+    # nodes.
+    for node, node_attribute in subgraph.nodes(data=True):
+        if node_attribute["node"].type == "in_node":
+            in_nodes[node_attribute["node"].parent_name].append(node)
+        elif node_attribute["node"].type == "out_node":
+            out_nodes[node_attribute["node"].parent_name].append(node)
+
+    # Connect the output node of subgraph 1 with the input node of subgraph 2.
+    for parent_node, nodes_out in out_nodes.items():
+        nodes_in = in_nodes[parent_node]
+        for node_out in nodes_out:
+            for node_in in nodes_in:
+                # Avoid to create a loop between identical nodes.
+                if node_out.split("_")[-2] != node_in.split("_")[-2]:
+                    subgraph_connected.add_edge(node_out,
+                                                node_in,
+                                                name=node_out + "_" + node_in,
+                                                out_pin={},
+                                                in_pin={})
+    return subgraph_connected
+
+
 def extract_graph(graph, fi_model):
     """ Extract the subgraph containing all comb. and seq. logic of interest. 
 
@@ -361,7 +400,10 @@ def extract_graph(graph, fi_model):
             extracted_graphs.append(subgraph)
     # Merge all graphs into the target graph.
     extracted_graph = nx.compose_all(extracted_graphs)
-
+    graph_builder.write_graph(extracted_graph, "test.dot")
+    # Connect the subgraphs in the target graph.
+    extracted_graph = connect_graphs(graph, extracted_graph)
+    graph_builder.write_graph(extracted_graph, "test_after.dot")
     print(helpers.header)
     return extracted_graph
 
