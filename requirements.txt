@@ -1,0 +1,5 @@
+networkx==2.6.3
+numpy==1.19.5
+sympy==1.8
+ray==1.7.0
+pathlib==1.0.1
