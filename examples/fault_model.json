@@ -1,0 +1,40 @@
+{
+  "fimodels": {
+    "rnd_ctr": {
+      "simultaneous_faults": 2,
+      "stages" : {
+          "stage_1": {
+              "input": "$auto$simplemap.cc:527:simplemap_adff_sdff$14916",
+              "output": "$auto$simplemap.cc:527:simplemap_adff_sdff$14916",
+              "type": "input"
+          },
+          "stage_2": {
+            "input": "$auto$simplemap.cc:527:simplemap_adff_sdff$14916",
+            "output": "rnd_ctr_err_sum(1)",
+            "type": "output"
+        }
+      },
+      "node_fault_mapping": {
+        "NAND2_X1": [ "NOR2_X1", "OR2_X1", "XOR2_X1"],
+        "NOR2_X1":  [ "NAND2_X1", "OR2_X1", "XOR2_X1"],
+        "AND2_X1": [ "NAND2_X1", "NOR2_X1", "XOR2_X1"],
+        "XOR2_X1": [ "NAND2_X1", "NOR2_X1", "OR2_X1"],
+        "XNOR2_X1": ["XOR2_X1", "NAND2_X1", "NOR2_X1" ],
+        "INV_X1": ["INV_X1"]
+
+      },
+      "fault_locations": {
+        "$abc$16613$auto$blifparse.cc:381:parse_blif$16783": "stage_1",
+        "$abc$16613$auto$blifparse.cc:381:parse_blif$16770": "stage_2",
+        "$abc$16613$auto$blifparse.cc:381:parse_blif$16797": "stage_1",
+        "$abc$16613$auto$blifparse.cc:381:parse_blif$16634": "stage_2"
+      },
+      "output_values": {
+        "rnd_ctr_err_sum(1)": 0
+      },
+      "input_values": {
+          "$auto$simplemap.cc:527:simplemap_adff_sdff$14916": 1
+      }
+    }
+  }
+ }
