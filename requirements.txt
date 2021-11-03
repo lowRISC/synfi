@@ -1,0 +1,2 @@
+sympy==1.8
+networkx==2.6.3
