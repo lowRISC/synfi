@@ -8,10 +8,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-import cell_library
 import networkx as nx
 import numpy as np
 import pkg_resources
+
+import cell_library
 
 """Part of the fault injection framework for the OpenTitan.
 
