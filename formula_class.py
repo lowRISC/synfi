@@ -3,13 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import logging
 
 import networkx as nx
 from sympy import Symbol, false, true
 
-import cell_library
 import helpers
-from helpers import InputPin, Node
+from helpers import Node
+from nangate45_cell_library import cell_mapping
+
+logger = logging.getLogger(__name__)
 
 
 class FormulaBuilder:
@@ -63,16 +66,15 @@ class FormulaBuilder:
                     # than we have a predefined input value of one/zero for this
                     # input. Else we ignore input ports.
                     if node_type == "input" and len(inputs) > 1:
-                        sub_expressions.append(
-                            cell_library.cell_mapping[node_type](inputs,
-                                                                 self.graph))
+                        sub_expressions.append(cell_mapping[node_type](
+                            inputs, self.graph))
                     elif node_type != "input":
-                        if node_type in cell_library.cell_mapping:
-                            sub_expressions.append(
-                                cell_library.cell_mapping[node_type](
-                                    inputs, self.graph))
+                        if node_type in cell_mapping:
+                            sub_expressions.append(cell_mapping[node_type](
+                                inputs, self.graph))
                         else:
-                            print(f"Err: Gate type {node_type} not found.")
+                            logger.error(
+                                f"Err: Gate type {node_type} not found.")
 
         # Create the final boolean formula by ANDing all sub expressions.
         cnf = true
