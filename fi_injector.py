@@ -244,6 +244,9 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
     for output_node in fi_model["output_values"]:
         output_nodes.append(output_node)
 
+    for output_node in fi_model["alert_values"]:
+        output_nodes.append(output_node)
+
     for input_node in fi_model["input_values"]:
         input_nodes.append(input_node)
 
@@ -511,7 +514,7 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str,
 
 def main():
     tstp_begin = time.time()
-    ray.init()
+    ray.init(num_cpus=16)
     args = parse_arguments()
 
     # Open the fault model and the graph.
