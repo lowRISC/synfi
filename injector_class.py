@@ -8,10 +8,10 @@ from typing import Tuple
 import cell_library
 import networkx as nx
 import ray
-from formula_class import FormulaBuilder
 from sympy.logic.inference import satisfiable
 
 import helpers
+from formula_class import FormulaBuilder
 from helpers import Node
 
 
@@ -41,17 +41,20 @@ class FiInjector:
         self.fault_locations = fault_locations
         self.fault_model = fault_model
 
-    def _inject_faults(self):
+    def _inject_faults(self, fault_location):
         """ Inject faults into the target graph accoding to the fault location. 
 
         This function injects faults into the graph by replacing the type of
         the target node with the target type.
+
+        Args:
+            fault_location: The current fault location (location+gate mapping).
         
         Returns:
             The faulty target graph.
         """
         faulty_graph = copy.deepcopy(self.target_graph)
-        for node_target, fault_type in self.fault_locations:
+        for node_target, fault_type in fault_location:
             stage = self.fault_model["fault_locations"][node_target]
             # Find the nodes in the target graph which are replaced with the
             # faulty nodes.
@@ -207,7 +210,7 @@ class FiInjector:
 
         return diff_graph_out_logic
 
-    def perform_attack(self) -> Tuple[str, bool, list]:
+    def perform_attack(self) -> FIResult:
         """ Perform the attack. 
 
         Here, the attack on the target graph is conducted. First, a faulty graph
@@ -218,20 +221,26 @@ class FiInjector:
         Returns:
             The result of the attack.
         """
+        results = []
+        for fault_location in self.fault_locations:
+            # Inject the faults into the target graph.
+            faulty_graph = self._inject_faults(fault_location)
 
-        # Inject the faults into the target graph.
-        faulty_graph = self._inject_faults()
+            # Create the differential graph.
+            diff_graph = self._create_diff_graph(faulty_graph)
 
-        # Create the differential graph.
-        diff_graph = self._create_diff_graph(faulty_graph)
+            # Transform the differential graph to a boolean formula
+            formula_builder = FormulaBuilder(diff_graph)
+            cnf = formula_builder.transform_graph()
 
-        # Transform the differential graph to a boolean formula
-        formula_builder = FormulaBuilder(diff_graph)
-        cnf = formula_builder.transform_graph()
+            # Hand the boolean formula to the SAT solver.
+            sat_result = satisfiable(cnf)
+            if sat_result != False:
+                sat_result = True
 
-        # Hand the boolean formula to the SAT solver.
-        sat_result = satisfiable(cnf)
-        if sat_result != False:
-            sat_result = True
+            results.append(
+                FIResult(fault_name=self.fault_name,
+                         sat_result=sat_result,
+                         fault_location=fault_location))
 
-        return (self.fault_name, sat_result, self.fault_locations)
+        return results

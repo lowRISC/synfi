@@ -34,7 +34,7 @@ is then used by the fault injector to evaluate the effects of the induced
 faults. To run the fault injector with the example netlist and the example fault
 model, execute the fi_injector tool:
 ```console
-$ ./fi_injector.py -f examples/fault_model.json -p output/circuit.pickle
+$ ./fi_injector.py -p output/circuit.pickle -f examples/fault_model.json -n 16
 ```
 
 ## Licensing

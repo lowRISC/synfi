@@ -12,6 +12,7 @@ import time
 from typing import DefaultDict, Tuple
 
 import networkx as nx
+import numpy
 import ray
 
 import helpers
@@ -24,7 +25,7 @@ This tool injects faults into the graph created with the parser and evaluates
 the effectiveness and if the countermeasure detects these faults.
 
 Typical usage:
->>> ./fi_injector.py -p output/circuit.pickle -f examples/fault_model.json
+>>> ./fi_injector.py -p output/circuit.pickle -f examples/fault_model.json -n 16
 """
 
 
@@ -47,6 +48,12 @@ def parse_arguments():
                         type=helpers.ap_check_file_exists,
                         required=True,
                         help="Path of the circuit in pickle format")
+    parser.add_argument("-n",
+                        "--num_cores",
+                        dest="num_cores",
+                        type="int",
+                        required=True,
+                        help="Number of cores to use")
     parser.add_argument("--debug",
                         action="store_true",
                         help="Write intermediate graphs as .dot files")
@@ -446,8 +453,7 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict) -> nx.DiGraph:
     return extracted_graph
 
 
-def evaluate_fault_results(results: Tuple[str, bool, list],
-                           fi_model: dict) -> None:
+def evaluate_fault_results(results: list, fi_model: dict) -> None:
     """ Prints the result of the fault attack.
 
     Summarizes the effective and ineffective faults found in the attack. 
@@ -460,19 +466,20 @@ def evaluate_fault_results(results: Tuple[str, bool, list],
     """
     ineffective_faults = 0
     effective_faults = 0
-    for result in results:
-        if result[1]:
-            effective_faults = effective_faults + 1
-        else:
-            ineffective_faults = ineffective_faults + 1
-    print("Found " + str(effective_faults * fi_model["simultaneous_faults"]) +
-          " effective faults and " +
-          str(ineffective_faults * fi_model["simultaneous_faults"]) +
-          " ineffective faults.")
+    for result_per_fault_model in results:
+        for result in result_per_fault_model:
+            if result.sat_result:
+                effective_faults = effective_faults + 1
+            else:
+                ineffective_faults = ineffective_faults + 1
+    print(
+        f"Found {effective_faults * fi_model['simultaneous_faults']} effective faults and {ineffective_faults * fi_model['simultaneous_faults']} ineffective faults."
+    )
+    print(helpers.header)
 
 
-def handle_fault_model(graph: nx.DiGraph, fi_model_name: str,
-                       fi_model: dict) -> None:
+def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
+                       num_cores: int) -> None:
     """ Handles each fault model of the fault model specification file.
 
     This function first extracts the target sub graph of the main circuit. Then,
@@ -483,7 +490,8 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str,
     Args:
         graph: The networkx digraph of the circuit.
         fi_model_name: The name of the active fault model.
-        fi_model: The active fault model
+        fi_model: The active fault model.
+        num_cores: The number of cores to use for the FI.
     """
     # Extract the target graph from the circuit.
     target_graph = extract_graph(graph, fi_model)
@@ -491,26 +499,31 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str,
     # Determine all possible fault location combinations.
     fault_locations = fault_combinations(graph, fi_model)
 
-    print("Injecting " +
-          str(len(fault_locations) * fi_model["simultaneous_faults"]) +
-          " faults into " + fi_model_name + " ...")
+    # Split the fault locations into num_cores shares.
+    fl_shares = numpy.array_split(numpy.array(fault_locations), num_cores)
 
+    print(
+        f"Injecting {(len(fault_locations) * fi_model['simultaneous_faults']) } faults into {fi_model_name} ..."
+    )
+
+    # Use ray to distribute fault injection to num_cores processes.
     workers = [
-        FiInjector.remote(fi_model_name, target_graph, fault_location,
-                          fi_model) for fault_location in fault_locations
+        FiInjector.remote(fi_model_name, target_graph, fl_share, fi_model)
+        for fl_share in fl_shares
     ]
 
+    # Perform the attack and collect the results.
     tasks = [worker.perform_attack.remote() for worker in workers]
     results = ray.get(tasks)
 
     evaluate_fault_results(results, fi_model)
-    print(helpers.header)
 
 
 def main():
     tstp_begin = time.time()
-    ray.init()
     args = parse_arguments()
+    num_cores = args.num_cores
+    ray.init(num_cpus=num_cores)
 
     # Open the fault model and the graph.
     fi_models = open_fi_models(args)
@@ -519,7 +532,7 @@ def main():
 
     # Handle each fault model.
     for fi_model_name, fi_model in fi_models.items():
-        handle_fault_model(graph, fi_model_name, fi_model)
+        handle_fault_model(graph, fi_model_name, fi_model, num_cores)
 
     tstp_end = time.time()
     print("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
