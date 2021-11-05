@@ -7,6 +7,7 @@ import logging
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import networkx as nx
@@ -24,6 +25,20 @@ logger = logging.getLogger(__name__)
 
 _, TERMINAL_COLS = os.popen("stty size", "r").read().split()
 header = "-" * int(TERMINAL_COLS)
+
+
+@dataclass
+class FIResult:
+    """ FI data class.
+
+    A result consisting of the fault name, the sat_result, and the fault
+    location for a fault injection.
+    Used by the Injector Class and the FI Injector module.
+    
+    """
+    fault_name: str
+    sat_result: bool
+    fault_location: np.ndarray
 
 
 def show_and_exit(clitool: str, packages: str) -> None:
