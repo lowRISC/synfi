@@ -288,14 +288,24 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
         graph.add_node(
             node_in_name_mod, **{
                 "node":
-                Node(node_in_name_mod, node_in, in_node_type, {}, {}, stage,
-                     in_color)
+                Node(name=node_in_name_mod,
+                     parent_name=node_in,
+                     type=in_node_type,
+                     inputs={},
+                     outputs={},
+                     stage=stage,
+                     node_color=in_color)
             })
         graph.add_node(
             node_out_name_mod, **{
                 "node":
-                Node(node_out_name_mod, node_out, out_node_type, {}, {}, stage,
-                     out_color)
+                Node(name=node_out_name_mod,
+                     parent_name=node_out,
+                     type=out_node_type,
+                     inputs={},
+                     outputs={},
+                     stage=stage,
+                     node_color=out_color)
             })
         graph.nodes[node_in_name_mod]["node"].outputs = graph.nodes[
             node_in_name]["node"].outputs

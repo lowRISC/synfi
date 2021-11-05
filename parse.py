@@ -206,10 +206,21 @@ def add_nodes(module: dict, ports: dict) -> Tuple[list, dict]:
     out_wires = {}
 
     # Add null/one nodes for gates with a 0/1 as input.
-    nodes["null"] = Node("null", "null", "null_node", {}, {'0': "O"}, "",
-                         "black")
+    nodes["null"] = Node(name="null",
+                         parent_name="null",
+                         type="null_node",
+                         inputs={},
+                         outputs={'0': "O"},
+                         stage="",
+                         node_color="black")
     out_wires['0'] = "null"
-    nodes["one"] = Node("one", "one", "one_node", {}, {'1': "O"}, "", "black")
+    nodes["one"] = Node(name="one",
+                        parent_name="one",
+                        type="one_node",
+                        inputs={},
+                        outputs={'1': "O"},
+                        stage="",
+                        node_color="black")
     out_wires['1'] = "one"
 
     # Read the netlist and add nodes.

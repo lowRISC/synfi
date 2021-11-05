@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 _, TERMINAL_COLS = os.popen("stty size", "r").read().split()
 header = "-" * int(TERMINAL_COLS)
 
+
 @dataclass
 class InputPin:
     """ InputPin data class.
@@ -36,6 +37,7 @@ class InputPin:
     """
     node: str
     out_pin: str
+
 
 @dataclass
 class FIResult:
@@ -65,26 +67,33 @@ def show_and_exit(clitool: str, packages: str) -> None:
     exit(0)
 
 
+@dataclass
 class Node:
-    """Class for a node in the circuit."""
-    def __init__(self, name, parent_name, type, inputs, outputs, stage,
-                 node_color):
-        self.name = name
-        self.parent_name = parent_name
-        self.type = type
-        self.inputs = inputs
-        self.outputs = outputs
-        self.stage = stage
-        self.node_color = node_color
+    """ Node class.
+
+    A node represents an element (gate, ...) in the circuit.
+    
+    """
+    name: str
+    parent_name: str
+    type: str
+    inputs: dict
+    outputs: dict
+    stage: str
+    node_color: str
 
 
+@dataclass
 class Port:
-    """Class for a input or output node in the circuit."""
-    def __init__(self, name, pins, type, length):
-        self.name = name
-        self.pins = pins
-        self.type = type
-        self.length = length
+    """ Node class.
+
+    An input or output node of the circuit.
+    
+    """
+    name: str
+    pins: str
+    type: str
+    length: int
 
 
 def rename_nodes(graph: nx.DiGraph, suffix: str,
