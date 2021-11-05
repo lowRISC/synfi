@@ -7,6 +7,7 @@ import argparse
 import copy
 import itertools
 import json
+import logging
 import pickle
 import time
 from typing import DefaultDict, Tuple
@@ -123,7 +124,7 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict) -> list:
                     faulty_node_mapping.append((fault_node, gate))
                 faulty_nodes_mapping.append(faulty_node_mapping)
             else:
-                print(f"Err: Node {fault_node} not found in graph.")
+                logger.error(f"Err: Node {fault_node} not found in graph.")
         # Calculate the cartesian product.
         combinations_for_faulty_nodes = list(
             itertools.product(*faulty_nodes_mapping))
@@ -468,10 +469,11 @@ def evaluate_fault_results(results: Tuple[str, bool, list],
             effective_faults = effective_faults + 1
         else:
             ineffective_faults = ineffective_faults + 1
-    print("Found " + str(effective_faults * fi_model["simultaneous_faults"]) +
-          " effective faults and " +
-          str(ineffective_faults * fi_model["simultaneous_faults"]) +
-          " ineffective faults.")
+    logger.info("Found " +
+                str(effective_faults * fi_model["simultaneous_faults"]) +
+                " effective faults and " +
+                str(ineffective_faults * fi_model["simultaneous_faults"]) +
+                " ineffective faults.")
 
 
 def handle_fault_model(graph: nx.DiGraph, fi_model_name: str,
@@ -494,9 +496,9 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str,
     # Determine all possible fault location combinations.
     fault_locations = fault_combinations(graph, fi_model)
 
-    print("Injecting " +
-          str(len(fault_locations) * fi_model["simultaneous_faults"]) +
-          " faults into " + fi_model_name + " ...")
+    logger.info("Injecting " +
+                str(len(fault_locations) * fi_model["simultaneous_faults"]) +
+                " faults into " + fi_model_name + " ...")
 
     workers = [
         FiInjector.remote(fi_model_name, target_graph, fault_location,
@@ -507,7 +509,7 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str,
     results = ray.get(tasks)
 
     evaluate_fault_results(results, fi_model)
-    print(helpers.header)
+    logger.info(helpers.header)
 
 
 def main():
@@ -525,8 +527,13 @@ def main():
         handle_fault_model(graph, fi_model_name, fi_model)
 
     tstp_end = time.time()
-    print("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
+    logger.info("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
 
 
 if __name__ == "__main__":
+    # Configure the logger.
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    console = logging.StreamHandler()
+    logger.addHandler(console)
     main()

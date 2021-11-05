@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
+
 import networkx as nx
 from sympy import Symbol, false, true
 
@@ -10,6 +12,8 @@ from sympy import Symbol, false, true
 This library provides the mapping for a gate type of the Nangate45 library to a 
 boolean formula in CNF.
 """
+logger = logging.getLogger(__name__)
+
 # Set the clock and reset name and values.
 clk_name = "clk_i"
 clk_value = true
@@ -222,7 +226,7 @@ def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
                                                       input.out_pin)
         return input_symbols
     else:
-        print(inputs)
+        logger.error(inputs)
         raise Exception(f"Gate {type} is missing some inputs.")
 
 

@@ -13,6 +13,7 @@ import cell_library
 import helpers
 from formula_class import FormulaBuilder
 from helpers import Node
+from nangate45_cell_library import gate_in_type, pin_mapping
 
 
 @ray.remote
@@ -64,14 +65,12 @@ class FiInjector:
                 current_type = faulty_graph.nodes[node]["node"].type
                 faulty_graph.nodes[node]["node"].type = fault_type
                 faulty_graph.nodes[node]["node"].node_color = "red"
-                if cell_library.gate_in_type[
-                        current_type] != cell_library.gate_in_type[fault_type]:
+                if gate_in_type[current_type] != gate_in_type[fault_type]:
                     # We need to remap the input pins as the input type mismatches.
-                    gate_in_type_current = cell_library.gate_in_type[
-                        current_type]
-                    gate_in_type_faulty = cell_library.gate_in_type[fault_type]
-                    in_pin_mapping = cell_library.pin_mapping[
-                        gate_in_type_current][gate_in_type_faulty]
+                    gate_in_type_current = gate_in_type[current_type]
+                    gate_in_type_faulty = gate_in_type[fault_type]
+                    in_pin_mapping = pin_mapping[gate_in_type_current][
+                        gate_in_type_faulty]
                     # Update the pin name in the node dict.
                     for pin in faulty_graph.nodes[node]["node"].inputs.keys():
                         faulty_graph.nodes[node]["node"].inputs[

@@ -5,6 +5,7 @@
 
 import argparse
 import json
+import logging
 import pickle
 import time
 from pathlib import Path
@@ -314,8 +315,13 @@ def main():
     write_circuit(graph, args.outfile, args.debug)
 
     tstp_end = time.time()
-    print("parse.py successful (%.2fs)" % (tstp_end - tstp_begin))
+    logger.info("parse.py successful (%.2fs)." % (tstp_end - tstp_begin))
 
 
 if __name__ == "__main__":
+    # Configure the logger.
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    console = logging.StreamHandler()
+    logger.addHandler(console)
     main()
