@@ -52,7 +52,7 @@ def parse_arguments():
     parser.add_argument("-n",
                         "--num_cores",
                         dest="num_cores",
-                        type="int",
+                        type=int,
                         required=True,
                         help="Number of cores to use")
     parser.add_argument("--debug",

@@ -9,7 +9,7 @@ import networkx as nx
 from sympy import Symbol, false, true
 
 import helpers
-from helpers import Node
+from helpers import Node, InputPin
 from nangate45_cell_library import cell_mapping
 
 logger = logging.getLogger(__name__)

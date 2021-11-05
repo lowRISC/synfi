@@ -26,6 +26,16 @@ logger = logging.getLogger(__name__)
 _, TERMINAL_COLS = os.popen("stty size", "r").read().split()
 header = "-" * int(TERMINAL_COLS)
 
+@dataclass
+class InputPin:
+    """ InputPin data class.
+
+    Used by the cell library and the formula builder to describe an input pin
+    of a given node.
+    
+    """
+    node: str
+    out_pin: str
 
 @dataclass
 class FIResult:

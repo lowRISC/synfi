@@ -9,10 +9,9 @@ import networkx as nx
 import ray
 from sympy.logic.inference import satisfiable
 
-import cell_library
 import helpers
 from formula_class import FormulaBuilder
-from helpers import Node
+from helpers import Node, FIResult
 from nangate45_cell_library import gate_in_type, pin_mapping
 
 
