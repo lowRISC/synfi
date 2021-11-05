@@ -3,21 +3,25 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import logging
 import os
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import cell_library
 import networkx as nx
 import numpy as np
 import pkg_resources
+
+import nangate45_cell_library
 
 """Part of the fault injection framework for the OpenTitan.
 
 This module provides common helper functions used by different modules.
 """
+
+logger = logging.getLogger(__name__)
 
 _, TERMINAL_COLS = os.popen("stty size", "r").read().split()
 header = "-" * int(TERMINAL_COLS)
@@ -105,14 +109,15 @@ def print_graph_stat(graph: nx.DiGraph) -> None:
     Args:
         graph: The netlist of the circuit.
     """
+
     gates = []
     for node in graph.nodes().values():
         if "node" in node: gates.append(node["node"].type)
 
     gates, number = np.unique(gates, return_counts=True)
     for cnt in range(0, len(gates)):
-        print(gates[cnt] + ": " + str(number[cnt]))
-    print(header)
+        logger.info(gates[cnt] + ": " + str(number[cnt]))
+    logger.info(header)
 
 
 def get_registers(graph: nx.DiGraph) -> list:
@@ -126,7 +131,8 @@ def get_registers(graph: nx.DiGraph) -> list:
     """
     registers = []
     for node in graph.nodes().values():
-        if ("node" in node) and (node["node"].type in cell_library.registers):
+        if ("node" in node) and (node["node"].type
+                                 in nangate45_cell_library.registers):
             registers.append(node)
     return registers
 
@@ -172,7 +178,7 @@ def print_ports(ports: dict) -> None:
             in_string += port_name + " "
         else:
             out_string += port_name + " "
-    print(header)
-    print(in_string)
-    print(out_string)
-    print(header)
+    logger.info(header)
+    logger.info(in_string)
+    logger.info(out_string)
+    logger.info(header)

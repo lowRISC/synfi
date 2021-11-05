@@ -5,14 +5,15 @@
 import copy
 from typing import Tuple
 
-import cell_library
 import networkx as nx
 import ray
 from sympy.logic.inference import satisfiable
 
+import cell_library
 import helpers
 from formula_class import FormulaBuilder
 from helpers import Node
+from nangate45_cell_library import gate_in_type, pin_mapping
 
 
 @ray.remote
@@ -67,14 +68,12 @@ class FiInjector:
                 current_type = faulty_graph.nodes[node]["node"].type
                 faulty_graph.nodes[node]["node"].type = fault_type
                 faulty_graph.nodes[node]["node"].node_color = "red"
-                if cell_library.gate_in_type[
-                        current_type] != cell_library.gate_in_type[fault_type]:
+                if gate_in_type[current_type] != gate_in_type[fault_type]:
                     # We need to remap the input pins as the input type mismatches.
-                    gate_in_type_current = cell_library.gate_in_type[
-                        current_type]
-                    gate_in_type_faulty = cell_library.gate_in_type[fault_type]
-                    in_pin_mapping = cell_library.pin_mapping[
-                        gate_in_type_current][gate_in_type_faulty]
+                    gate_in_type_current = gate_in_type[current_type]
+                    gate_in_type_faulty = gate_in_type[fault_type]
+                    in_pin_mapping = pin_mapping[gate_in_type_current][
+                        gate_in_type_faulty]
                     # Update the pin name in the node dict.
                     for pin in faulty_graph.nodes[node]["node"].inputs.keys():
                         faulty_graph.nodes[node]["node"].inputs[
@@ -89,32 +88,21 @@ class FiInjector:
 
         return faulty_graph
 
-    def _create_diff_graph(self, faulty_graph):
-        """ Create the differential graph based on the faulty graph. 
+    def _add_in_logic(self, diff_graph):
+        """ Add the input logic to the differential graph. 
 
-        This function creates the differential graph by merging the faulty graph
-        and the unmodified target graph into a common graph. The inputs of the 
-        differential graph are set to predefined values specified in the fault
-        model. The output is compared to a predefined value using a XNOR. To
-        get a single output port, the output of the XNORs are connected using a
-        AND.
+        In the input logic, the input nodes defined in the fault model are 
+        connected with their predefined value.
 
         Args:
-            faulty_graph: The target graph with the faulty nodes.
+            diff_graph: The differential graph.
         
         Returns:
-            The differential graph.
+            The differential graph with the input nodes.
         """
-        orig_graph = copy.deepcopy(self.target_graph)
-        faulty_graph_renamed = copy.deepcopy(faulty_graph)
-        # Rename the faulty graph.
-        faulty_graph_renamed = helpers.rename_nodes(faulty_graph_renamed,
-                                                    "_faulty", True)
-        # Merge the graphs into a common graph.
-        diff_graph = nx.compose(orig_graph, faulty_graph_renamed)
 
-        # Add the input logic. Here, the values are set to a defined value.
         diff_graph_in_logic = copy.deepcopy(diff_graph)
+        # Add the null and one node for the predefined values.
         diff_graph_in_logic.add_node(
             "null", **{
                 "node":
@@ -125,6 +113,8 @@ class FiInjector:
                 "node": Node("one", "one", "one_node", {}, {'1': "O"}, "",
                              "black")
             })
+        # Get the input values from the fault model and connect each input node
+        # with the null / one node.
         input_values = self.fault_model["input_values"]
         for node, value in input_values.items():
             # Find all input nodes and connect with node.
@@ -146,22 +136,39 @@ class FiInjector:
                                                  name="null_wire",
                                                  out_pin="O",
                                                  in_pin="I1")
+        return diff_graph_in_logic
 
-        # Add the output logic. The output logic compares the result with the
-        # expected result stored in "output_values" of the fault model.
-        diff_graph_out_logic = copy.deepcopy(diff_graph_in_logic)
-        output_values = self.fault_model["output_values"]
+    def _add_xor_xnor(self, diff_graph_out_logic, diff_graph, values, alert):
+        """ Add the XORs and XNORs for the output logic to the graph. 
+
+        Args:
+            diff_graph_out_logic: The differential graph with the output logic.
+            diff_graph: The differential graph
+            values: The values for the selected nodes.
+            alert: 
+        
+        Returns:
+            The differential graph with the XORs and XNORs.
+        """
         out_nodes_added = []
-        for node, value in output_values.items():
-            # Add XNOR node for each output node and connect with this port.
+
+        for node_target, value in values.items():
+            # Add XNOR/XOR node for each output node and connect with this port.
             nodes = [
-                n for n, d in diff_graph.nodes(data=True) if
-                (d["node"].parent_name == node and d["node"].type == "output")
+                n for n, d in diff_graph.nodes(data=True)
+                if (d["node"].parent_name == node_target
+                    and d["node"].type == "output")
             ]
             for node in nodes:
                 if "_faulty" in node:
-                    node_name = node + "_xor"
-                    node_type = "xor"
+                    if alert:
+                        # For the alert signals, use XNORs.
+                        node_name = node + "_xnor"
+                        node_type = "xnor"
+                    else:
+                        # For outputs use XORs.
+                        node_name = node + "_xor"
+                        node_type = "xor"
                 else:
                     node_name = node + "_xnor"
                     node_type = "xnor"
@@ -191,7 +198,45 @@ class FiInjector:
                                               in_pin="I2")
                 diff_graph_out_logic.nodes[node]["node"].outputs = {0: "O"}
                 diff_graph_out_logic.nodes[node]["node"].inputs = {0: "I"}
-        # Connect the outputs of the XNORs with a AND.
+        return out_nodes_added
+
+    def _add_out_logic(self, diff_graph):
+        """ Add the output logic to the differential graph. 
+        
+        For the non-faulty graph in the differential graph:
+        -XNORs are used to compare the output to the expected output.
+        For the faulty graph in the differential graph:
+        -XORs are used to compare the output to the expected output.
+        -XNORs are used to compare the alert signals to the expected 
+         alert output signals. We are using XNORs as we are only interested in
+         faults manipulating the output but not the alert signal.
+
+        All XNORs/XORs are ANDed to produce the final circuit.
+
+        Args:
+            diff_graph: The differential graph.
+        
+        Returns:
+            The differential graph with the output logic.
+        """
+        diff_graph_out_logic = copy.deepcopy(diff_graph)
+        output_values = self.fault_model["output_values"]
+        alert_values = self.fault_model["alert_values"]
+        out_nodes_added = []
+        # Add the output logic for the output values.
+        out_nodes_added.append(
+            self._add_xor_xnor(diff_graph_out_logic, diff_graph, output_values,
+                               False))
+        # Add the output logic for the alert values.
+        out_nodes_added.append(
+            self._add_xor_xnor(diff_graph_out_logic, diff_graph, alert_values,
+                               True))
+        # Flatten the list.
+        out_nodes_added = [
+            item for sublist in out_nodes_added for item in sublist
+        ]
+
+        # Connect the outputs of the XNOR/XORs with a AND.
         out_name = "output_logic_and"
         diff_graph_out_logic.add_node(
             out_name, **{
@@ -207,6 +252,39 @@ class FiInjector:
                                           out_pin="O",
                                           in_pin="A" + str(cntr))
             cntr = cntr + 1
+
+        return diff_graph_out_logic
+
+    def _create_diff_graph(self, faulty_graph):
+        """ Create the differential graph based on the faulty graph. 
+
+        This function creates the differential graph by merging the faulty graph
+        and the unmodified target graph into a common graph. The inputs of the 
+        differential graph are set to predefined values specified in the fault
+        model. The output is compared to a predefined value using a XNOR. To
+        get a single output port, the output of the XNORs are connected using a
+        AND.
+
+        Args:
+            faulty_graph: The target graph with the faulty nodes.
+        
+        Returns:
+            The differential graph.
+        """
+        orig_graph = copy.deepcopy(self.target_graph)
+        faulty_graph_renamed = copy.deepcopy(faulty_graph)
+        # Rename the faulty graph.
+        faulty_graph_renamed = helpers.rename_nodes(faulty_graph_renamed,
+                                                    "_faulty", True)
+        # Merge the graphs into a common graph.
+        diff_graph = nx.compose(orig_graph, faulty_graph_renamed)
+
+        # Add the input logic. Here, the values are set to a defined value.
+        diff_graph_in_logic = self._add_in_logic(diff_graph)
+
+        # Add the output logic. The output logic compares the result with the
+        # expected result stored in "output_values" of the fault model.
+        diff_graph_out_logic = self._add_out_logic(diff_graph_in_logic)
 
         return diff_graph_out_logic
 

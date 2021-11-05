@@ -7,6 +7,7 @@ import argparse
 import copy
 import itertools
 import json
+import logging
 import pickle
 import time
 from typing import DefaultDict, Tuple
@@ -130,7 +131,7 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict) -> list:
                     faulty_node_mapping.append((fault_node, gate))
                 faulty_nodes_mapping.append(faulty_node_mapping)
             else:
-                print(f"Err: Node {fault_node} not found in graph.")
+                logger.error(f"Err: Node {fault_node} not found in graph.")
         # Calculate the cartesian product.
         combinations_for_faulty_nodes = list(
             itertools.product(*faulty_nodes_mapping))
@@ -248,6 +249,9 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
     output_nodes = []
 
     for output_node in fi_model["output_values"]:
+        output_nodes.append(output_node)
+
+    for output_node in fi_model["alert_values"]:
         output_nodes.append(output_node)
 
     for input_node in fi_model["input_values"]:
@@ -472,10 +476,10 @@ def evaluate_fault_results(results: list, fi_model: dict) -> None:
                 effective_faults = effective_faults + 1
             else:
                 ineffective_faults = ineffective_faults + 1
-    print(
+    logger.info(
         f"Found {effective_faults * fi_model['simultaneous_faults']} effective faults and {ineffective_faults * fi_model['simultaneous_faults']} ineffective faults."
     )
-    print(helpers.header)
+    logger.info(helpers.header)
 
 
 def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
@@ -502,7 +506,7 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
     # Split the fault locations into num_cores shares.
     fl_shares = numpy.array_split(numpy.array(fault_locations), num_cores)
 
-    print(
+    logger.info(
         f"Injecting {(len(fault_locations) * fi_model['simultaneous_faults']) } faults into {fi_model_name} ..."
     )
 
@@ -535,8 +539,13 @@ def main():
         handle_fault_model(graph, fi_model_name, fi_model, num_cores)
 
     tstp_end = time.time()
-    print("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
+    logger.info("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
 
 
 if __name__ == "__main__":
+    # Configure the logger.
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    console = logging.StreamHandler()
+    logger.addHandler(console)
     main()
