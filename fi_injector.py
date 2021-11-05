@@ -29,9 +29,14 @@ Typical usage:
 >>> ./fi_injector.py -p output/circuit.pickle -f examples/fault_model.json -n 16
 """
 
+logger = logging.getLogger()
 
-def parse_arguments():
+
+def parse_arguments(argv):
     """ Command line argument parsing.
+
+    Args:
+        argv: The command line arguments.
 
     Returns:
         The parsed arguments.
@@ -61,7 +66,7 @@ def parse_arguments():
     parser.add_argument("--version",
                         action="store_true",
                         help="Show version and exit")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.version:
         helpers.show_and_exit(__file__, ["networkx", "numpy", "ray", "sympy"])
@@ -483,7 +488,7 @@ def evaluate_fault_results(results: list, fi_model: dict) -> None:
 
 
 def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
-                       num_cores: int) -> None:
+                       num_cores: int) -> list:
     """ Handles each fault model of the fault model specification file.
 
     This function first extracts the target sub graph of the main circuit. Then,
@@ -522,10 +527,34 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
 
     evaluate_fault_results(results, fi_model)
 
+    # Flatten the list and return.
+    return [item for sublist in results for item in sublist]
 
-def main():
+
+def test_main():
+    """ Pytest function.
+
+    Test the fault injector using the fault_model_pytest fault model.
+    The first FI experiment should return True, the second False.
+
+    """
+    res = main([
+        "-p", "circuit.pickle", "-f", "examples/fault_model_pytest.json", "-n",
+        "1"
+    ])
+
+    assert res[0][0].sat_result == True
+    assert res[0][1].sat_result == False
+
+
+def main(argv=None):
+    # Configure the logger.
+    logger.setLevel(logging.INFO)
+    console = logging.StreamHandler()
+    logger.addHandler(console)
+
     tstp_begin = time.time()
-    args = parse_arguments()
+    args = parse_arguments(argv)
     num_cores = args.num_cores
     ray.init(num_cpus=num_cores)
 
@@ -535,17 +564,16 @@ def main():
     graph = read_circuit(graph, args)
 
     # Handle each fault model.
+    results = []
     for fi_model_name, fi_model in fi_models.items():
-        handle_fault_model(graph, fi_model_name, fi_model, num_cores)
+        results.append(
+            handle_fault_model(graph, fi_model_name, fi_model, num_cores))
 
     tstp_end = time.time()
     logger.info("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
 
+    return results
+
 
 if __name__ == "__main__":
-    # Configure the logger.
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    console = logging.StreamHandler()
-    logger.addHandler(console)
     main()
