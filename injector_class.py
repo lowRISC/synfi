@@ -11,7 +11,7 @@ from sympy.logic.inference import satisfiable
 
 import helpers
 from formula_class import FormulaBuilder
-from helpers import Node, FIResult
+from helpers import FIResult, Node
 from nangate45_cell_library import gate_in_type, pin_mapping
 
 
@@ -105,12 +105,24 @@ class FiInjector:
         diff_graph_in_logic.add_node(
             "null", **{
                 "node":
-                Node("null", "null", "null_node", {}, {'0': "O"}, "", "black")
+                Node(name="null",
+                     parent_name="null",
+                     type="null_node",
+                     inputs={},
+                     outputs={'0': "O"},
+                     stage="",
+                     node_color="black")
             })
         diff_graph_in_logic.add_node(
             "one", **{
-                "node": Node("one", "one", "one_node", {}, {'1': "O"}, "",
-                             "black")
+                "node":
+                Node(name="one",
+                     parent_name="one",
+                     type="one_node",
+                     inputs={},
+                     outputs={'1': "O"},
+                     stage="",
+                     node_color="black")
             })
         # Get the input values from the fault model and connect each input node
         # with the null / one node.
@@ -174,8 +186,13 @@ class FiInjector:
                 diff_graph_out_logic.add_node(
                     node_name, **{
                         "node":
-                        Node(node_name, node_name, node_type, {0: "I"},
-                             {0: "O"}, "out_stage", "purple")
+                        Node(name=node_name,
+                             parent_name=node_name,
+                             type=node_type,
+                             inputs={0: "I"},
+                             outputs={0: "O"},
+                             stage="out_stage",
+                             node_color="purple")
                     })
                 out_nodes_added.append(node_name)
                 if value == 1:
@@ -240,8 +257,13 @@ class FiInjector:
         diff_graph_out_logic.add_node(
             out_name, **{
                 "node":
-                Node(out_name, out_name, "and", {0: "I"}, {0: "Q"}, "",
-                     "purple")
+                Node(name=out_name,
+                     parent_name=out_name,
+                     type="and",
+                     inputs={0: "I"},
+                     outputs={0: "Q"},
+                     stage="",
+                     node_color="purple")
             })
         cntr = 1
         for out_node in out_nodes_added:
