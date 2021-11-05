@@ -5,6 +5,7 @@
 import argparse
 import logging
 import os
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -23,7 +24,7 @@ This module provides common helper functions used by different modules.
 
 logger = logging.getLogger(__name__)
 
-_, TERMINAL_COLS = os.popen("stty size", "r").read().split()
+TERMINAL_COLS = shutil.get_terminal_size((80, 20)).columns
 header = "-" * int(TERMINAL_COLS)
 
 

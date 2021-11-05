@@ -251,8 +251,10 @@ def open_module(args) -> dict:
     return module
 
 
-def parse_arguments():
+def parse_arguments(argv):
     """ Command line argument parsing.
+    Args:
+        argv: The command line arguments.
 
     Returns:
         The parsed arguments.
@@ -281,7 +283,7 @@ def parse_arguments():
                         type=helpers.ap_check_dir_exists,
                         required=True,
                         help="The output graph file")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.version:
         helpers.show_and_exit(__file__, ["networkx", "numpy", "pathlib"])
@@ -305,9 +307,25 @@ def write_circuit(graph: nx.DiGraph,
         pickle.dump(graph, f)
 
 
-def main():
+def test_main():
+    """ Pytest function.
+
+    """
+    res = main([
+        "-j", "examples/circuit.json", "-m", "aes_cipher_control", "-o",
+        "circuit.pickle"
+    ])
+
+
+def main(argv=None):
+    # Configure the logger.
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    console = logging.StreamHandler()
+    logger.addHandler(console)
+
     tstp_begin = time.time()
-    args = parse_arguments()
+    args = parse_arguments(argv)
 
     graph = nx.DiGraph()
 
@@ -330,9 +348,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # Configure the logger.
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    console = logging.StreamHandler()
-    logger.addHandler(console)
     main()
