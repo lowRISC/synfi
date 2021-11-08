@@ -9,7 +9,7 @@ from sympy import Symbol, false, true
 
 """Part of the fault injection framework for the OpenTitan.
 
-This library provides the mapping for a gate type of the Nangate45 library to a 
+This library provides the mapping for a gate type of the Nangate45 library to a
 boolean formula in CNF.
 """
 logger = logging.getLogger(__name__)
@@ -89,9 +89,7 @@ pin_mapping = {
             "A2": "B",
             "B1": "C1",
             "B2": "C2"
-        }
-    },
-    "A2B2": {
+        },
         "A4": {
             "A1": "A1",
             "A2": "A2",
@@ -105,9 +103,7 @@ pin_mapping = {
             "B": "A2",
             "C1": "B1",
             "C2": "B2"
-        }
-    },
-    "A1B1C2": {
+        },
         "A4": {
             "A": "A1",
             "B": "A2",
@@ -121,9 +117,7 @@ pin_mapping = {
             "A2": "A2",
             "A3": "B1",
             "A4": "B2"
-        }
-    },
-    "A4": {
+        },
         "A1B1C2": {
             "A1": "A",
             "A2": "B",
@@ -136,9 +130,7 @@ pin_mapping = {
             "A1": "A",
             "A2": "B1",
             "A3": "B2"
-        }
-    },
-    "A3": {
+        },
         "A1B1S1": {
             "A1": "A",
             "A2": "B",
@@ -150,9 +142,7 @@ pin_mapping = {
             "A": "A1",
             "B1": "A2",
             "B2": "A3"
-        }
-    },
-    "A1B2": {
+        },
         "A1B1S1": {
             "A": "A",
             "B1": "B",
@@ -164,9 +154,7 @@ pin_mapping = {
             "A": "A1",
             "B": "A2",
             "S": "A3"
-        }
-    },
-    "A1B1S1": {
+        },
         "A1B2": {
             "A": "A",
             "B": "B1",
@@ -191,13 +179,13 @@ pin_mapping = {
 def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
     """ Validates the provided input of the gate.
 
-    This function verifies that all inputs are present for the selected gate. 
+    This function verifies that all inputs are present for the selected gate.
 
     Args:
         inputs: The list of provided inputs.
         graph: The networkx graph of the circuit.
-        type: The type of the gate.    
-    
+        type: The type of the gate.
+
     Returns:
         The inputs for the gate.
     """
@@ -822,9 +810,9 @@ def in_node(inputs: dict, graph: nx.DiGraph) -> Symbol:
     Args:
         inputs: {"I1", "node_name"}.
         graph: The networkx graph of the circuit.
-        
+
     Returns:
-        ZN = I if invert==false or 
+        ZN = I if invert==false or
         ZN = !I if invert==true
     """
     p = validate_inputs(inputs, graph, "in_node")

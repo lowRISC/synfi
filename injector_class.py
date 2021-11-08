@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
-from typing import Tuple
 
 import networkx as nx
 import ray
@@ -17,10 +16,10 @@ from nangate45_cell_library import gate_in_type, pin_mapping
 
 @ray.remote
 class FiInjector:
-    """ Class for performing distributed fault injections. 
+    """ Class for performing distributed fault injections.
 
     This class provides functionality to inject faults into the target circuit
-    according to the fault model, to create the differential graph, to 
+    according to the fault model, to create the differential graph, to
     extract the boolean CNF formula of this graph, and to hand the formula to
     a SAT solver.
     """
@@ -29,7 +28,7 @@ class FiInjector:
 
         This function injects faults into the graph by replacing the type of
         the target node with the target type.
-        
+
         Args:
             fault_name: The fault model name of the current attack.
             target_graph: The graph to be evaluated.
@@ -42,7 +41,7 @@ class FiInjector:
         self.fault_model = fault_model
 
     def _inject_faults(self, fault_location):
-        """ Inject faults into the target graph accoding to the fault location. 
+        """ Inject faults into the target graph accoding to the fault location.
 
         This function injects faults into the graph by replacing the type of
         the target node with the target type.
@@ -88,14 +87,14 @@ class FiInjector:
         return faulty_graph
 
     def _add_in_logic(self, diff_graph):
-        """ Add the input logic to the differential graph. 
+        """ Add the input logic to the differential graph.
 
-        In the input logic, the input nodes defined in the fault model are 
+        In the input logic, the input nodes defined in the fault model are
         connected with their predefined value.
 
         Args:
             diff_graph: The differential graph.
-        
+
         Returns:
             The differential graph with the input nodes.
         """
@@ -150,14 +149,14 @@ class FiInjector:
         return diff_graph_in_logic
 
     def _add_xor_xnor(self, diff_graph_out_logic, diff_graph, values, alert):
-        """ Add the XORs and XNORs for the output logic to the graph. 
+        """ Add the XORs and XNORs for the output logic to the graph.
 
         Args:
             diff_graph_out_logic: The differential graph with the output logic.
             diff_graph: The differential graph
             values: The values for the selected nodes.
-            alert: 
-        
+            alert: The node is an alert node.
+
         Returns:
             The differential graph with the XORs and XNORs.
         """
@@ -217,13 +216,13 @@ class FiInjector:
         return out_nodes_added
 
     def _add_out_logic(self, diff_graph):
-        """ Add the output logic to the differential graph. 
-        
+        """ Add the output logic to the differential graph.
+
         For the non-faulty graph in the differential graph:
         -XNORs are used to compare the output to the expected output.
         For the faulty graph in the differential graph:
         -XORs are used to compare the output to the expected output.
-        -XNORs are used to compare the alert signals to the expected 
+        -XNORs are used to compare the alert signals to the expected
          alert output signals. We are using XNORs as we are only interested in
          faults manipulating the output but not the alert signal.
 
@@ -231,7 +230,7 @@ class FiInjector:
 
         Args:
             diff_graph: The differential graph.
-        
+
         Returns:
             The differential graph with the output logic.
         """
@@ -277,10 +276,10 @@ class FiInjector:
         return diff_graph_out_logic
 
     def _create_diff_graph(self, faulty_graph):
-        """ Create the differential graph based on the faulty graph. 
+        """ Create the differential graph based on the faulty graph.
 
         This function creates the differential graph by merging the faulty graph
-        and the unmodified target graph into a common graph. The inputs of the 
+        and the unmodified target graph into a common graph. The inputs of the
         differential graph are set to predefined values specified in the fault
         model. The output is compared to a predefined value using a XNOR. To
         get a single output port, the output of the XNORs are connected using a
@@ -288,7 +287,7 @@ class FiInjector:
 
         Args:
             faulty_graph: The target graph with the faulty nodes.
-        
+
         Returns:
             The differential graph.
         """
@@ -310,11 +309,11 @@ class FiInjector:
         return diff_graph_out_logic
 
     def perform_attack(self) -> FIResult:
-        """ Perform the attack. 
+        """ Perform the attack.
 
         Here, the attack on the target graph is conducted. First, a faulty graph
         is created. In this graph, the target fault nodes are replaced according
-        to the fault mapping. Then, the differential graph is created and 
+        to the fault mapping. Then, the differential graph is created and
         converted to a boolean formula.
 
         Returns:

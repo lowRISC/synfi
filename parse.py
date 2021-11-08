@@ -23,17 +23,17 @@ This tool parses the JSON netlist created by Yosys or Synopsys and creates
 a graph, which is later used for the fault injections.
 
 Typical usage:
->>> ./parse.py -j examples/circuit.json -m aes_cipher_control 
+>>> ./parse.py -j examples/circuit.json -m aes_cipher_control
                -o output/circuit.pickle
 """
 
 
 def parse_ports(module: dict) -> dict:
     """Parses the input and output ports of the selected module.
-    
+
     Args:
         module: The selected module.
-    
+
     Returns:
         Dict containing all ports.
     """
@@ -52,10 +52,10 @@ def parse_ports(module: dict) -> dict:
 
 def parse_wires(module: dict) -> dict:
     """Parses the netnames of the selected module.
-        
+   
     Args:
         module: The selected module.
-    
+
     Returns:
         Dict containing all wires.
     """
@@ -74,14 +74,14 @@ def parse_nodes(module: dict) -> dict:
     node = [{input,output}, port_name, wire_name]
     e.g.:
     node_reg = [input, D, reg_d]
-    To track the dependencies between nodes, this function consists of the 
+    To track the dependencies between nodes, this function consists of the
     two dicts in_wires and out_wires. These dicts are in the format:
     in_wires[reg_d] = [node_reg]
     and are later used to find the dependencies between two nodes.
 
     Args:
         module: The selected module.
-    
+
     Returns:
         Dict containing all parsed nodes, the in_wires, and the out_wires.
     """
@@ -123,7 +123,7 @@ def create_connections(in_wires: dict, out_wires: dict) -> list:
     Args:
         in_wires: Input wires of a node. in_wires[wire_name] = node_name
         out_wires: Output wires of a node. out_wires[wire_name] = node_name
-    
+
     Returns:
         Connections in the format (node1, node2, wire_name).
     """
@@ -143,7 +143,7 @@ def add_pins(ports: dict, nodes: dict, in_wires: dict,
 
     A port(N) consists of N 1-bit pins. For each of these pins, this
     function creates a new node and connects the pin with the port.
-        
+
     Args:
         ports: The parsed ports.
     """
@@ -190,13 +190,13 @@ def add_pins(ports: dict, nodes: dict, in_wires: dict,
 def add_nodes(module: dict, ports: dict) -> Tuple[list, dict]:
     """Parses the nodes and creates the dependencies between them.
 
-    Reads the nodes of the module in the JSON file and adds them to the 
+    Reads the nodes of the module in the JSON file and adds them to th
     node dict. Determines the dependencies between the nodes.
 
     Args:
         module: The selected module.
         ports: The parsed ports.
-    
+
     Returns:
         Dict containing all nodes and the connection list.
     """
@@ -237,10 +237,10 @@ def add_nodes(module: dict, ports: dict) -> Tuple[list, dict]:
 
 def open_module(args) -> dict:
     """ Opens the JSON netlist.
-    
+
     Args:
         args: The input arguments.
-    
+
     Returns:
         The selected module of the netlist.
     """

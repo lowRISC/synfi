@@ -34,7 +34,7 @@ class InputPin:
 
     Used by the cell library and the formula builder to describe an input pin
     of a given node.
-    
+
     """
     node: str
     out_pin: str
@@ -47,7 +47,7 @@ class FIResult:
     A result consisting of the fault name, the sat_result, and the fault
     location for a fault injection.
     Used by the Injector Class and the FI Injector module.
-    
+
     """
     fault_name: str
     sat_result: bool
@@ -73,7 +73,7 @@ class Node:
     """ Node class.
 
     A node represents an element (gate, ...) in the circuit.
-    
+ 
     """
     name: str
     parent_name: str
@@ -89,7 +89,7 @@ class Port:
     """ Node class.
 
     An input or output node of the circuit.
-    
+
     """
     name: str
     pins: str
@@ -99,8 +99,8 @@ class Port:
 
 def rename_nodes(graph: nx.DiGraph, suffix: str,
                  ignore_inputs: bool) -> nx.DiGraph:
-    """ Rename all nodes of the graph by appending a suffix. 
-    
+    """ Rename all nodes of the graph by appending a suffix.
+
     Args:
         graph: The networkx digraph of the circuit.
         suffix: The suffix, which is appended to the original node name.
@@ -147,7 +147,7 @@ def get_registers(graph: nx.DiGraph) -> list:
         graph: The netlist of the circuit.
 
     Returns:
-        List of all register names.    
+        List of all register names.
     """
     registers = []
     for node in graph.nodes().values():
@@ -164,7 +164,7 @@ def ap_check_file_exists(file_path: str) -> Path:
         file_path: The file path.
 
     Returns:
-        The file path.   
+        The file path.
     """
     path = Path(file_path)
     if not path.is_file():

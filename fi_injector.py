@@ -10,7 +10,7 @@ import json
 import logging
 import pickle
 import time
-from typing import DefaultDict, Tuple
+from typing import DefaultDict
 
 import networkx as nx
 import numpy
@@ -76,10 +76,10 @@ def parse_arguments(argv):
 
 def open_fi_models(args) -> dict:
     """ Opens the JSON fault model.
-    
+
     Args:
         args: The input arguments.
-    
+
     Returns:
         The fault model.
     """
@@ -90,11 +90,11 @@ def open_fi_models(args) -> dict:
 
 def read_circuit(graph: nx.DiGraph, args) -> nx.DiGraph:
     """ Opens the circuit in the pickle file.
-    
+
     Args:
         graph: The networkx digraph.
         args: The input arguments.
-    
+
     Returns:
         The graph stored in the pickle file.
     """
@@ -109,11 +109,11 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict) -> list:
     The fault model contains a list of fault targets (gates), the fault mapping
     (e.g., NAND->AND), and the number of simultaneous faults. This function
     generates a list of all possible combinations of these parameters.
-    
+
     Args:
         graph: The networkx digraph of the circuit.
         fi_model: The active fault model
-    
+
     Returns:
         A list containing all fault locations and the corresponding gates.
     """
@@ -148,7 +148,7 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict) -> list:
 def extract_graph_between_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
                                 stage: str) -> nx.DiGraph:
     """ Extract the subgraph between two nodes.
-    
+
     Args:
         graph: The networkx digraph of the circuit.
         node_in: The input node.
@@ -192,7 +192,7 @@ def reconnect_node(graph: nx.DiGraph, node: str, node_new: str,
 
     Reconnects the node "node" in the graph by removing the input/output edges
     and add a new edge for the node "node_new".
-    
+
     Args:
         graph: The networkx digraph of the circuit.
         node: The node to be reconnected.
@@ -217,7 +217,7 @@ def reconnect_node(graph: nx.DiGraph, node: str, node_new: str,
                            out_pin=(edge_data["out_pin"]),
                            in_pin=(edge_data["in_pin"]))
     else:
-        #find input edges of register_node and add to list
+        # Find the input edges of register_node and add to list.
         for edge in graph.in_edges(graph.nodes[node]["node"].name):
             remove_edges.append((edge[0], edge[1]))
 
@@ -236,8 +236,8 @@ def reconnect_node(graph: nx.DiGraph, node: str, node_new: str,
 def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
                      rename_string: str, fi_model: dict,
                      stage: str) -> nx.DiGraph:
-    """ Add the input and output nodes of the subgraph. 
-    
+    """ Add the input and output nodes of the subgraph.
+
     Args:
         graph: The networkx digraph of the circuit.
         node_in: The input node.
@@ -339,7 +339,7 @@ def add_in_nodes(graph: nx.DiGraph, subgraph: nx.DiGraph, in_node: str,
     The extracted graph is a subgraph of the original graph only
     containing the fault sensitive part of the circuit. However, the input nodes
     of the gates in this subgraph are missing and added in this function.
-    
+
     Args:
         graph: The original digraph of the circuit.
         subgraph: The extracted target graph.
@@ -393,11 +393,11 @@ def add_in_nodes(graph: nx.DiGraph, subgraph: nx.DiGraph, in_node: str,
 
 
 def connect_graphs(graph: nx.DiGraph, subgraph: nx.DiGraph) -> nx.DiGraph:
-    """ Connect the subgraphs in the target graph. 
+    """ Connect the subgraphs in the target graph.
 
     The target graph consists of several subgraphs with a input and output node.
     This function connects these in/out nodes between the subgraphs.
-    
+
     Args:
         graph: The original digraph of the circuit.
         subgraph: The extracted target graph.
@@ -432,11 +432,11 @@ def connect_graphs(graph: nx.DiGraph, subgraph: nx.DiGraph) -> nx.DiGraph:
 
 
 def extract_graph(graph: nx.DiGraph, fi_model: dict) -> nx.DiGraph:
-    """ Extract the subgraph containing all comb. and seq. logic of interest. 
+    """ Extract the subgraph containing all comb. and seq. logic of interest.
 
     The subgraphs between all input and output nodes defined in the fault model
     are created and merged into the extracted graph.
-    
+
     Args:
         graph: The networkx digraph of the circuit.
         fi_model: The active fault model.
@@ -475,10 +475,10 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict) -> nx.DiGraph:
 def evaluate_fault_results(results: list, fi_model: dict) -> None:
     """ Prints the result of the fault attack.
 
-    Summarizes the effective and ineffective faults found in the attack. 
-    An effective fault is a fault changing the output value but not triggering 
+    Summarizes the effective and ineffective faults found in the attack.
+    An effective fault is a fault changing the output value but not triggering
     the error logic of the fault countermeasure.
-    
+
     Args:
         results: The results of the fault attack.
         fi_model_name: The name of the active fault model.
@@ -505,7 +505,7 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
     for all possible fault locations in the target graph, the fault is injected,
     the boolean formula is created, and the fault is evaluated using a SAT
     solver.
-    
+
     Args:
         graph: The networkx digraph of the circuit.
         fi_model_name: The name of the active fault model.
