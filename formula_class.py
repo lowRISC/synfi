@@ -2,28 +2,25 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-import copy
 import logging
 
-import networkx as nx
-from sympy import Symbol, false, true
+from sympy import Symbol, true
 
-import helpers
-from helpers import Node, InputPin
+from helpers import InputPin
 from nangate45_cell_library import cell_mapping
 
 logger = logging.getLogger(__name__)
 
 
 class FormulaBuilder:
-    """ Class for converting a graph into a boolean formula. 
+    """ Class for converting a graph into a boolean formula.
 
     This class provides functionality to a networkx graph into a boolean formula
     in CNF.
     """
     def __init__(self, graph):
         """ Inits the FormulaBuilder class
-        
+
         Args:
             graph: The graph to transform.
         """
@@ -33,8 +30,8 @@ class FormulaBuilder:
         """ Transforms the graph into a boolean formula in CNF.
 
         This function uses the Tseytin transformation to transform the
-        differential graph into a boolean formula. 
-        
+        differential graph into a boolean formula.
+
         Returns:
             The boolean formula in CNF.
         """
