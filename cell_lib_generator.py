@@ -7,6 +7,8 @@ import argparse
 import logging
 import time
 from dataclasses import dataclass
+from pathlib import Path
+from typing import DefaultDict
 
 import sympy
 from liberty.parser import parse_liberty
@@ -14,6 +16,7 @@ from sympy import Symbol, false, solve, sympify, true
 from sympy.logic.boolalg import is_cnf, simplify_logic, to_cnf
 
 import helpers
+from template.cell_lib_template import cell_header, cell_in_validation, otfi_cells
 
 """Part of the fault injection framework for the OpenTitan.
 
@@ -26,7 +29,6 @@ Typical usage:
 >>> ./cell_lib_generator.py -c NangateOpenCellLibrary_typical.lib 
                             -o nangate45_cell_lib.py
 """
-
 
 @dataclass
 class Cell:
@@ -48,6 +50,7 @@ class Output:
     """
     name: str
     formula: str
+    formula_cnf: Symbol
 
 def parse_arguments(argv):
     """ Command line argument parsing.
@@ -194,7 +197,7 @@ def convert_string(formula: str, output: str, gate: str) -> Symbol:
 
     return formula
 
-def parse_cells(cell_lib):
+def parse_cells(cell_lib) -> list:
     """ Parse the cells in the cell library.
 
     Args:
@@ -213,25 +216,27 @@ def parse_cells(cell_lib):
             if pin_group["direction"] == "input":
                 inputs.append(pin_name)
             else:
-                if pin_group["function"]: function = pin_group["function"].value
-                else: function = ""
-                out_pin = Output(name=pin_name, formula=function)
-                outputs.append(out_pin)
-
-        cell = Cell(name=name,
-                    inputs=inputs,
-                    outputs=outputs)
-        cells.append(cell)
+                if pin_group["function"]: 
+                    function = pin_group["function"].value
+                    out_pin = Output(name=pin_name, formula=function, 
+                                    formula_cnf="")
+                    outputs.append(out_pin)
+       
+        # Ignore cells without outputs or inputs, e.g., filler cells.
+        if inputs and outputs:
+            cell = Cell(name=name,
+                        inputs=inputs,
+                        outputs=outputs)
+            cells.append(cell)
 
     return cells
 
-
-def convert_formula(cells):
+def convert_formula(cells: list):
     """ Converts the boolean function from a string to a clause.
 
     Args:
         cells: The cells list.
-    
+
     """
     for cell in cells:
         # "S" is predefined by sympy, replace with K.
@@ -240,7 +245,117 @@ def convert_formula(cells):
         cell.inputs, cell.outputs = replace_pin(cell.inputs, cell.outputs, "I", "L")
         for output in cell.outputs:
             if output.formula:
-                output.formula = convert_string(output.formula, output.name, cell.name)
+                output.formula_cnf = convert_string(output.formula, output.name, cell.name)
+
+def build_cell_function(cell_name: str, formula: str, formula_cnf: Symbol, out_name: str, inputs: str) -> str:
+    """ Creates the cell function.
+
+    Args:
+        cell_name: The name of the cell.
+        formula: The formula of the cell.
+        formula_cnf: The formula converted to CNF.
+        out_name: The name of the output pin of the cell.
+        inputs: The inputs of the cell.
+
+    Returns:
+        The cell function as a string.
+
+    """
+    CELL_FUNCTION = """
+def {name}(inputs: dict, graph: nx.DiGraph) -> Symbol:
+    ''' {name} gate.
+
+    Args:
+        inputs: {inputs}
+        graph: The networkx graph of the circuit.
+    Returns:
+        {output} = {function}
+    '''
+    p = validate_inputs(inputs, graph, '{name}')
+    return ({function_cnf})\n
+"""
+    cell_function = CELL_FUNCTION.format(name=cell_name, 
+                                         function=formula,
+                                         function_cnf=formula_cnf,
+                                         output=out_name,
+                                         inputs=inputs)
+    return cell_function
+
+def build_cell_pins(inputs: dict) -> str:
+    """ The cell pin dict contains the corresponding pins of a cell.
+
+    Args:
+        inputs: The list of input cells.
+
+    Returns:
+        The dict for each cell with its inputs as an entry.
+    """
+
+    CELL_PINS = """
+cell_pins = {{
+{cell_entry}
+}}
+"""
+
+    pins = [ f"  {cell_name}: {pins}," for cell_name, pins in inputs.items()]
+    return CELL_PINS.format(cell_entry="\n".join(pins))
+
+
+def build_cell_mapping(cells: Cell) -> str:
+    """ The cell pin dict contains the corresponding pins of a cell.
+
+    Args:
+        inputs: The list of input cells.
+
+    Returns:
+        The dict for each cell with its inputs as an entry.
+    """
+
+    CELL_MAPPING = """
+cell_mapping = {{
+{cell_mapping}
+}}
+"""
+    cell_mappings = []
+    cell_mapping = [ f"  '{cell.name}': {cell.name}," for cell in cells]
+    return CELL_MAPPING.format(cell_mapping="\n".join(cell_mapping))
+
+def build_cell_lib(cells: list) -> str:
+    """ Converts the boolean function from a string to a clause.
+
+    Args:
+        cells: The cells list.
+
+    """
+    cell_lib = ""
+    cell_formulas = ""
+    
+    inputs_list = DefaultDict(list)
+
+    for cell in cells:
+        for output in cell.outputs:
+            cell_name = cell.name + "_" + output.name
+            inputs = "{ "+ (", ".join([str("'"+input+"'") for input in cell.inputs])) + ",'node_name' }"
+            inputs_list[cell_name] = inputs
+            # Create the cell function.
+            cell_formulas += build_cell_function(cell_name, output.formula, output.formula_cnf, output.name, inputs)
+    
+    cell_pins = build_cell_pins(inputs_list)
+    cell_mapping = build_cell_mapping(cells)
+
+    cell_lib += cell_header
+    cell_lib += cell_pins
+    cell_lib += cell_in_validation
+    cell_lib += cell_formulas
+    cell_lib += otfi_cells
+    cell_lib += cell_mapping
+
+    return cell_lib
+
+def write_cell_lib(cell_lib_py: str, out_file: Path) -> None:
+    with open(out_file, "w") as f:
+        f.write(cell_lib_py)
+
 
 def main(argv=None):
     tstp_begin = time.time()
@@ -249,6 +364,8 @@ def main(argv=None):
     cell_lib = open_cell_lib(args)
     cells = parse_cells(cell_lib)
     convert_formula(cells)
+    cell_lib_py = build_cell_lib(cells)
+    write_cell_lib(cell_lib_py, args.out_lib)
 
     tstp_end = time.time()
     logger.info("cell_lib_generator.py successful (%.2fs)" %
