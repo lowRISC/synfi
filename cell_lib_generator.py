@@ -33,13 +33,21 @@ class Cell:
     """ Cell data class.
 
     A cell consists of a list of input and output pins and a boolean formula.
-    
+
     """
     name: str
     inputs: list
     outputs: list
-    formula: str
 
+@dataclass
+class Output:
+    """ An output of a cell.
+
+    A cell consists of one or multiple outputs with an associated formula.
+
+    """
+    name: str
+    formula: str
 
 def parse_arguments(argv):
     """ Command line argument parsing.
@@ -79,7 +87,7 @@ def open_cell_lib(args) -> dict:
     
     Args:
         args: The input arguments.
-    
+
     Returns:
         The cell library.
     """
@@ -96,10 +104,10 @@ def simplify_expression(expr: Symbol) -> Symbol:
 
     The simplify_logic functionality of sympy is used to simplify the given 
     expression. As the output needs to be in CNF, a check is conducted.
-    
+
     Args:
         expr: The boolean expression to simplify.
-    
+
     Returns:
         The simplified boolean expression in CNF.
     """
@@ -113,87 +121,85 @@ def simplify_expression(expr: Symbol) -> Symbol:
 def convert_cnf(expr: Symbol, out_symbol: Symbol, gate: str) -> Symbol:
     """ Convert the given boolean expression to CNF.
 
-    The logical biconditional of the boolean expression of the gate is converted 
+    The logical biconditional of the boolean expression of the gate is converted
     to CNF using the sympy library.
-    
+
     Args:
         expr: The boolean expression to convert.
         out_symbol: The output variable of the boolean expression.
         gate: The name of the current gate.
-    
+
     Returns:
         The boolean expression in CNF.
     """
-    # Logical biconditional
-    cnf = to_cnf((out_symbol & expr) | (~in_symbol & ~expr))
+    cnf = to_cnf((out_symbol & expr) | (~out_symbol & ~expr))
     if not is_cnf(cnf):
         raise Exception(f"Failed to convert {gate} to CNF.")
     return cnf
 
 
-def replace_pin(formula: str, inputs: list, outputs: list, target_char: str,
-                replace_char: str) -> str:
+def replace_pin(inputs: list, outputs: list, target_char: str,
+replace_char: str) -> str:
     """ Replace a pin name.
 
     Sympy uses some predefined symbols (I, S), which need to be replaced in the
-    formula and the input and output pins. 
-    
+    input and output pins.
+
     Args:
-        formula: The boolean formula of the cell.
         inputs: The inputs of the cell.
         outputs: The outputs of the cell.
         target_char: The char to replace.
         replace_char: The rename char.
-    
+
     Returns:
         The formula, input, and output with the replaced pin name.
     """
-    if target_char in formula:
-        formula = formula.replace(target_char, replace_char)
-        inputs = [
-            in_pin.replace(target_char, replace_char) for in_pin in inputs
-        ]
-        outputs = [
-            out_pin.replace(target_char, replace_char) for out_pin in outputs
-        ]
-    return formula, inputs, outputs
+    inputs=[in_pin.replace(target_char, replace_char) for in_pin in inputs]
+    for out_pin in outputs:
+        out_pin.name.replace(target_char, replace_char)
+    #outputs=[out_pin.name.replace(target_char, replace_char) for out_pin in outputs]
+    return inputs, outputs
 
 
-def convert_string(cell: Cell) -> Symbol:
+def convert_string(formula: str, output: str, gate: str) -> Symbol:
     """ Convert the formula string to a sympy Symbol.
-    
+
     Args:
-        cell: The current cell.
-    
+        formula: The boolean formula.
+        output: The output in name of the boolean expression.
+        gate: The current gate.
+
     Returns:
         The boolean expression in CNF.
     """
-    inputs = cell.inputs
-    outputs = cell.outputs
     # As sympy requires ~ as a NOT, replace !.
-    formula_not = cell.formula.replace("!", "~")
+    formula = formula.replace("!", "~")
     # "S" is predefined by sympy, replace with K.
-    formula_k, inputs_k, outputs_k = replace_pin(formula_not, inputs, outputs,
-                                                 "S", "K")
+    formula = formula.replace("S", "K")
     # "I" is predefined by sympy, replace with L.
-    formula, inputs, outputs = replace_pin(formula_k, inputs_k, outputs_k, "I",
-                                           "L")
+    formula = formula.replace("I", "L")
+    # Set 1/0 formula to true/false
+    if formula == "1": formula = true
+    if formula == "0": formula = false
     try:
         # Convert the string to sympy using sympify. The convert_xor=False
         # converts a ^ to a XOR.
         formula = sympify(formula, convert_xor=False)
+        # Use the logical biconditional to induce the output.
+        formula = convert_cnf(formula, Symbol(output), gate)
+        # Simplify CNF formula.
+        formula = simplify_expression(formula)
     except:
-        raise Exception(f"Failed to convert formula for {cell.name}.")
+        raise Exception(f"Failed to convert formula for {gate}.")
 
-    return formula, inputs, outputs
-
+    return formula
 
 def parse_cells(cell_lib):
     """ Parse the cells in the cell library.
-    
+
     Args:
         cell_lib: The opened cell library.
-    
+
     Returns:
         The cells list.
     """
@@ -202,22 +208,19 @@ def parse_cells(cell_lib):
         name = cell_group.args[0]
         inputs = []
         outputs = []
-        function = ""
         for pin_group in cell_group.get_groups("pin"):
             pin_name = pin_group.args[0]
             if pin_group["direction"] == "input":
                 inputs.append(pin_name)
             else:
-                outputs.append(pin_name)
-                if pin_group["function"]:
-                    function = pin_group["function"].value
-                else:
-                    function = ""
+                if pin_group["function"]: function = pin_group["function"].value
+                else: function = ""
+                out_pin = Output(name=pin_name, formula=function)
+                outputs.append(out_pin)
 
         cell = Cell(name=name,
                     inputs=inputs,
-                    outputs=outputs,
-                    formula=function)
+                    outputs=outputs)
         cells.append(cell)
 
     return cells
@@ -225,23 +228,19 @@ def parse_cells(cell_lib):
 
 def convert_formula(cells):
     """ Converts the boolean function from a string to a clause.
-    
+
     Args:
         cells: The cells list.
     
     """
-
     for cell in cells:
-        if cell.formula:
-            # Convert formula string to sympy.
-            expression, inputs, outputs = convert_string(cell)
-            # Simplify sympy expression.
-            formula = simplify_expression(expression)
-            # Update cell.
-            cell.formula = formula
-            cell.inputs = inputs
-            cell.outputs = outputs
-
+        # "S" is predefined by sympy, replace with K.
+        cell.inputs, cell.outputs = replace_pin(cell.inputs, cell.outputs, "S", "K")
+        # "I" is predefined by sympy, replace with L.
+        cell.inputs, cell.outputs = replace_pin(cell.inputs, cell.outputs, "I", "L")
+        for output in cell.outputs:
+            if output.formula:
+                output.formula = convert_string(output.formula, output.name, cell.name)
 
 def main(argv=None):
     tstp_begin = time.time()
