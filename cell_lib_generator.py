@@ -9,11 +9,11 @@ import string
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import DefaultDict
 
-import sympy
+
+
 from liberty.parser import parse_liberty
-from sympy import Symbol, false, solve, sympify, true
+from sympy import Symbol, false, sympify, true
 from sympy.logic.boolalg import is_cnf, simplify_logic, to_cnf
 
 import helpers
@@ -21,14 +21,14 @@ from template.cell_lib_template import *
 
 """Part of the fault injection framework for the OpenTitan.
 
-This tool converts a cell library (e.g., the NangateOpenCell library from 
+This tool converts a cell library (e.g., the NangateOpenCell library from
 https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/blob/master/\\
 flow/platforms/nangate45/lib/NangateOpenCellLibrary_typical.lib) to the format
 needed by the FI Injector.
 
 Typical usage:
->>> ./cell_lib_generator.py -c NangateOpenCellLibrary_typical.lib 
-                            -o nangate45_cell_lib.py
+>>> ./cell_lib_generator.py -c NangateOpenCellLibrary_typical.lib
+                            -o cell_lib.py
 """
 
 
@@ -91,7 +91,7 @@ def parse_arguments(argv):
 
 def open_cell_lib(args) -> dict:
     """ Opens the cell library in the liberty format.
-    
+
     Args:
         args: The input arguments.
 
@@ -109,7 +109,7 @@ def open_cell_lib(args) -> dict:
 def simplify_expression(expr: Symbol) -> Symbol:
     """ Simplify the CNF expression.
 
-    The simplify_logic functionality of sympy is used to simplify the given 
+    The simplify_logic functionality of sympy is used to simplify the given
     expression. As the output needs to be in CNF, a check is conducted.
 
     Args:
@@ -164,7 +164,7 @@ def replace_pin(inputs: list, outputs: list, target_char: str,
     inputs = [in_pin.replace(target_char, replace_char) for in_pin in inputs]
     for out_pin in outputs:
         out_pin.name.replace(target_char, replace_char)
-    #outputs=[out_pin.name.replace(target_char, replace_char) for out_pin in outputs]
+
     return inputs, outputs
 
 
@@ -294,7 +294,7 @@ def build_cell_functions(cells: list) -> str:
     return cell_functions
 
 
-def build_cell_pins(cells: list) -> str:
+def build_in_type_mappings(cells: list) -> str:
     """ The cell pin dict contains the corresponding pins of a cell.
 
     Args:
@@ -343,15 +343,15 @@ def build_cell_pins(cells: list) -> str:
 
 
 def build_cell_mapping(cells: Cell) -> str:
-    """ The cell pin dict contains the corresponding pins of a cell.
+    """ The cell mapping consists the mapping from the cell name string to
+    the corresponding cell function.
 
     Args:
-        inputs: The list of input cells.
+        cells: The list of cells.
 
     Returns:
-        The dict for each cell with its inputs as an entry.
+        The dict for each cell name string with its function.
     """
-    cell_mappings = []
     cell_mapping = [f"  '{cell.name}': {cell.name}," for cell in cells]
     return CELL_MAPPING.format(cell_mapping="\n".join(cell_mapping))
 
@@ -366,12 +366,12 @@ def build_cell_lib(cells: list) -> str:
     cell_lib = ""
 
     cell_formulas = build_cell_functions(cells)
-    cell_pins = build_cell_pins(cells)
+    cell_in_type_mappings = build_in_type_mappings(cells)
     cell_mapping = build_cell_mapping(cells)
 
     # Assemble the python file string.
     cell_lib += cell_header
-    cell_lib += cell_pins
+    cell_lib += cell_in_type_mappings
     cell_lib += pin_mapping
     cell_lib += cell_in_validation
     cell_lib += cell_formulas
