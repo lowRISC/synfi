@@ -294,10 +294,8 @@ def build_cell_functions(cells: list) -> str:
 
 def build_in_type_mappings(cells: list) -> str:
     """ The cell pin dict contains the corresponding pins of a cell.
-
     Args:
         inputs: The list of input cells.
-
     Returns:
         The dict for each cell with its inputs as an entry.
     """
@@ -311,6 +309,8 @@ def build_in_type_mappings(cells: list) -> str:
     # E.g. for "A1B1C2" the inputs are "A", "B", "C1", "C2".
     in_types = {}
     in_types_pins = {}
+    out_types = {}
+    out_types_pins = {}
     for cell in cells:
         # IN_TYPE:
         pins = [pins.rstrip(string.digits) for pins in cell.inputs]
@@ -324,7 +324,25 @@ def build_in_type_mappings(cells: list) -> str:
             [str("'" + input + "'")
              for input in cell.inputs])) + ",'node_name' }"
         in_types_pins[in_type] = input_str
+        # OUT_TYPE
+        pins = [pins.name.rstrip(string.digits) for pins in cell.outputs]
+        out_type = ""
+        num_pins = {pin: pins.count(pin) for pin in pins}
+        for pin, num_pin in num_pins.items():
+            out_type += pin + str(num_pin)
+        out_types[cell.name] = out_type
+        # OUT_TYPE_PINS:
+        output_str = "{ " + (", ".join(
+            [str("'" + output.name + "'") for output in cell.outputs])) + " }"
+        out_types_pins[out_type] = output_str
+
     # Add gate_in_type dict to the output string.
+    in_types_list = []
+    for cell in cells:
+        for output in cell.outputs:
+            in_types_list.append(
+                f"  '{cell.name}_{output.name}': '{in_types[cell.name]}',")
+    cell_pins += CELL_IN_TYPE_OUT.format(gate_in="\n".join(in_types_list))
     in_types = [
         f"  '{cell_name}': '{in_type}',"
         for cell_name, in_type in in_types.items()
@@ -336,6 +354,18 @@ def build_in_type_mappings(cells: list) -> str:
         for in_type, in_pins in in_types_pins.items()
     ]
     cell_pins += CELL_IN_TYPE_PINS.format(cell_in="\n".join(in_types_pins))
+
+    out_types = [
+        f"  '{cell_name}': '{out_type}',"
+        for cell_name, out_type in out_types.items()
+    ]
+    cell_pins += CELL_OUT_TYPE.format(gate_out="\n".join(out_types))
+    # Add output_type_pins dict to the output string.
+    out_types_pins = [
+        f"  '{out_type}': {out_pins},"
+        for out_type, out_pins in out_types_pins.items()
+    ]
+    cell_pins += CELL_OUT_TYPE_PINS.format(cell_out="\n".join(out_types_pins))
 
     return cell_pins
 
@@ -374,7 +404,8 @@ def build_cell_lib(cells: list) -> str:
     # Assemble the python file string.
     cell_lib += cell_header
     cell_lib += cell_in_type_mappings
-    cell_lib += pin_mapping
+    cell_lib += pin_in_mapping
+    cell_lib += pin_out_mapping
     cell_lib += cell_in_validation
     cell_lib += cell_formulas
     cell_lib += otfi_cells

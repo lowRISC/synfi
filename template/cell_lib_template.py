@@ -52,8 +52,7 @@ def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
     Returns:
         The inputs for the gate.
     '''
-    type_extracted = type.rsplit('_', 1)[0]
-    type_pins = gate_in_type[type_extracted]
+    type_pins = gate_in_type_out[type]
     expected_inputs = in_type_pins[type_pins]
 
     if expected_inputs <= inputs.keys():
@@ -131,13 +130,13 @@ def and_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
         ZN = 'A1 & ... & AN' & node_name.
     '''
     if len(inputs) == 3:
-        return AND2_X1(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
+        return AND2_X1_ZN(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
                                                inputs['node_name'].out_pin)
     elif len(inputs) == 4:
-        return AND3_X1(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
+        return AND3_X1_ZN(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
                                                inputs['node_name'].out_pin)
     elif len(inputs) == 5:
-        return AND4_X1(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
+        return AND4_X1_ZN(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
                                                inputs['node_name'].out_pin)
     elif len(inputs) == 6:
         return AND5_X1(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
@@ -149,7 +148,7 @@ def and_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
         raise Exception('Missing and gate for output logic.')
 
 
-def input_formula(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def input_formula_Q(inputs: dict, graph: nx.DiGraph) -> Symbol:
     ''' Sets a input pin to a predefined (0 or 1) value.
 
     Args:
@@ -161,45 +160,64 @@ def input_formula(inputs: dict, graph: nx.DiGraph) -> Symbol:
     '''
 
     p = validate_inputs(inputs, graph, 'input_formula')
-    if inputs['node_name'].out_pin == 'QN': invert = True
-    else: invert = False
 
     if inputs['I1'].node == 'one':
         # Input is connected to 1.
-        if invert:
-            # Return a zero.
-            return (~false | p['node_name']) & (false | ~p['node_name'])
-        else:
-            # Return a one.
-            return (~true | p['node_name']) & (true | ~p['node_name'])
+        # Return a one.
+        return (~true | p['node_name']) & (true | ~p['node_name'])
     else:
         # Input ist connected to 0.
-        if invert:
-            # Return a one.
-            return (~true | p['node_name']) & (true | ~p['node_name'])
-        else:
-            # Return a zero.
-            return (~false | p['node_name']) & (false | ~p['node_name'])
+        # Return a zero.
+        return (~false | p['node_name']) & (false | ~p['node_name'])
 
 
-def in_node(inputs: dict, graph: nx.DiGraph) -> Symbol:
-    ''' In node.
+def input_formula_QN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+    ''' Sets a input pin to a predefined (0 or 1) value.
 
     Args:
         inputs: {'I1', 'node_name'}.
         graph: The networkx graph of the circuit.
 
     Returns:
-        ZN = I if invert==false or
-        ZN = !I if invert==true
+        0 or 1.
+    '''
+
+    p = validate_inputs(inputs, graph, 'input_formula')
+
+    if inputs['I1'].node == 'one':
+        # Input is connected to 1.
+        # Return a zero.
+        return (~false | p['node_name']) & (false | ~p['node_name'])
+    else:
+        # Input ist connected to 0.
+        # Return a one.
+        return (~true | p['node_name']) & (true | ~p['node_name'])
+
+def in_node_Q(inputs: dict, graph: nx.DiGraph) -> Symbol:
+    ''' In node Q
+
+    Args:
+        inputs: {'I1', 'node_name'}.
+        graph: The networkx graph of the circuit.
+
+    Returns:
+        Q = I
     '''
     p = validate_inputs(inputs, graph, 'in_node')
-    if inputs['node_name'].out_pin == 'QN': invert = True
-    else: invert = False
+    return (~p['I1'] | p['node_name']) & (p['I1'] | ~p['node_name'])
 
-    if invert: return (~p['I1'] | ~p['node_name']) & (p['I1'] | p['node_name'])
-    else: return (~p['I1'] | p['node_name']) & (p['I1'] | ~p['node_name'])
+def in_node_QN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+    ''' In node QN
 
+    Args:
+        inputs: {'I1', 'node_name'}.
+        graph: The networkx graph of the circuit.
+
+    Returns:
+        Q = !I
+    '''
+    p = validate_inputs(inputs, graph, 'in_node')
+    return (~p['I1'] | ~p['node_name']) & (p['I1'] | p['node_name'])
 
 def out_node(inputs: dict, graph: nx.DiGraph) -> Symbol:
     ''' Out node.
@@ -283,6 +301,19 @@ gate_in_type = {{
 }}
 """
 
+CELL_IN_TYPE_OUT = """
+gate_in_type_out = {{
+{gate_in}
+  'register': 'D1',
+  'out_node': 'D1',
+  'xnor': 'I2',
+  'xor': 'I2',
+  'input_formula': 'I1',
+  'in_node': 'I1',
+  'output': 'I1'
+}}
+"""
+
 """ In Type Pins format string.
 
 Contains the mapping input_key to inputs.
@@ -292,6 +323,33 @@ E.g., the cell "OAI21_X1" with the inputs "A", "B1", "B2" is transformed to:
 CELL_IN_TYPE_PINS = """
 in_type_pins = {{
 {cell_in}
+  'D1': {{'D', 'node_name'}},
+  'I1': {{'I1', 'node_name'}},
+  'I2': {{'I1', 'I2', 'node_name'}}
+}}
+"""
+
+""" Gate Out Type format string.
+
+Contains the mapping cell_name to output_key.
+E.g., the cell "OAI21_X1" with the output "ZN" is transformed to:
+"OAI21_X1": "ZN1"
+"""
+CELL_OUT_TYPE = """
+gate_out_type = {{
+{gate_out}
+}}
+"""
+
+""" Out Type Pins format string.
+
+Contains the mapping output_key to outputs.
+E.g., the cell "OAI21_X1" with the output "ZN" is transformed to:
+"ZN1": "ZN"
+"""
+CELL_OUT_TYPE_PINS = """
+out_type_pins = {{
+{cell_out}
 }}
 """
 
@@ -304,14 +362,24 @@ cell_mapping = {{
   'DFFS_X1_Q': register,
   'DFFS_X1_QN': register,
   'DFFR_X1_Q': register,
-  'DFFR_X1_QN': register
+  'DFFR_X1_QN': register,
+  'xnor_O': xnor,
+  'xor_O': xor,
+  'and_Q': and_output,
+  'input_Q': input_formula_Q,
+  'input_QN': input_formula_QN,
+  'in_node_Q': in_node_Q,
+  'in_node_QN': in_node_QN,
+  'out_node_Q': out_node,
+  'out_node_QN': out_node,
+  'output_O': output
 }}
 """
 
-""" Pin mapping template.
+""" Pin In mapping template.
 
 This dict contains the mapping from one input_key to another input_key.
-E.g., the input_key with the inputs "A1, A2, B1, B2" is mapped to
+E.g., the input_key A2B2 with the inputs "A1, A2, B1, B2" is mapped to
 A1B1C2 with the inputs "A, B, C1, C2". This mapping is needed for the fault
 injection, where one cell is replaced with another.
 
@@ -319,9 +387,9 @@ Note that this dict needs to be manually modified by the user when switchting
 to another cell library. This mapping is only valid for the NANGATE45 cell lib.
 
 """
-pin_mapping = """
+pin_in_mapping = """
 # The mapping from one input pin type to another used by the injector.
-pin_mapping = {
+pin_in_mapping = {
     'A2B2': {
         'A1B1C2': {
             'A1': 'A',
@@ -422,6 +490,33 @@ pin_mapping = {
         'A2': {
             'A': 'A1',
             'B': 'A2'
+        }
+    }
+}
+"""
+
+""" Pin Out mapping template.
+
+This dict contains the mapping from one output_key to another output_key.
+E.g., the output_key ZN1 with the output "ZN" is mapped to
+Z1 with the inputs "Z". This mapping is needed for the fault
+injection, where one cell is replaced with another.
+
+Note that this dict needs to be manually modified by the user when switchting
+to another cell library. This mapping is only valid for the NANGATE45 cell lib.
+
+"""
+pin_out_mapping = """
+# The mapping from one input pin type to another used by the injector.
+pin_out_mapping = {
+    'ZN1': {
+        'Z1': {
+            'ZN': 'Z'
+        }
+    },
+    'Z1': {
+        'ZN1': {
+            'Z': 'ZN'
         }
     }
 }
