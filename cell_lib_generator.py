@@ -5,6 +5,7 @@
 
 import argparse
 import logging
+import string
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,7 +17,7 @@ from sympy import Symbol, false, solve, sympify, true
 from sympy.logic.boolalg import is_cnf, simplify_logic, to_cnf
 
 import helpers
-from template.cell_lib_template import cell_header, cell_in_validation, otfi_cells
+from template.cell_lib_template import *
 
 """Part of the fault injection framework for the OpenTitan.
 
@@ -30,6 +31,7 @@ Typical usage:
                             -o nangate45_cell_lib.py
 """
 
+
 @dataclass
 class Cell:
     """ Cell data class.
@@ -41,6 +43,7 @@ class Cell:
     inputs: list
     outputs: list
 
+
 @dataclass
 class Output:
     """ An output of a cell.
@@ -51,6 +54,7 @@ class Output:
     name: str
     formula: str
     formula_cnf: Symbol
+
 
 def parse_arguments(argv):
     """ Command line argument parsing.
@@ -142,7 +146,7 @@ def convert_cnf(expr: Symbol, out_symbol: Symbol, gate: str) -> Symbol:
 
 
 def replace_pin(inputs: list, outputs: list, target_char: str,
-replace_char: str) -> str:
+                replace_char: str) -> str:
     """ Replace a pin name.
 
     Sympy uses some predefined symbols (I, S), which need to be replaced in the
@@ -157,7 +161,7 @@ replace_char: str) -> str:
     Returns:
         The formula, input, and output with the replaced pin name.
     """
-    inputs=[in_pin.replace(target_char, replace_char) for in_pin in inputs]
+    inputs = [in_pin.replace(target_char, replace_char) for in_pin in inputs]
     for out_pin in outputs:
         out_pin.name.replace(target_char, replace_char)
     #outputs=[out_pin.name.replace(target_char, replace_char) for out_pin in outputs]
@@ -197,6 +201,7 @@ def convert_string(formula: str, output: str, gate: str) -> Symbol:
 
     return formula
 
+
 def parse_cells(cell_lib) -> list:
     """ Parse the cells in the cell library.
 
@@ -216,20 +221,20 @@ def parse_cells(cell_lib) -> list:
             if pin_group["direction"] == "input":
                 inputs.append(pin_name)
             else:
-                if pin_group["function"]: 
+                if pin_group["function"]:
                     function = pin_group["function"].value
-                    out_pin = Output(name=pin_name, formula=function, 
-                                    formula_cnf="")
+                    out_pin = Output(name=pin_name,
+                                     formula=function,
+                                     formula_cnf="")
                     outputs.append(out_pin)
-       
+
         # Ignore cells without outputs or inputs, e.g., filler cells.
         if inputs and outputs:
-            cell = Cell(name=name,
-                        inputs=inputs,
-                        outputs=outputs)
+            cell = Cell(name=name, inputs=inputs, outputs=outputs)
             cells.append(cell)
 
     return cells
+
 
 def convert_formula(cells: list):
     """ Converts the boolean function from a string to a clause.
@@ -240,48 +245,56 @@ def convert_formula(cells: list):
     """
     for cell in cells:
         # "S" is predefined by sympy, replace with K.
-        cell.inputs, cell.outputs = replace_pin(cell.inputs, cell.outputs, "S", "K")
+        cell.inputs, cell.outputs = replace_pin(cell.inputs, cell.outputs, "S",
+                                                "K")
         # "I" is predefined by sympy, replace with L.
-        cell.inputs, cell.outputs = replace_pin(cell.inputs, cell.outputs, "I", "L")
+        cell.inputs, cell.outputs = replace_pin(cell.inputs, cell.outputs, "I",
+                                                "L")
         for output in cell.outputs:
             if output.formula:
-                output.formula_cnf = convert_string(output.formula, output.name, cell.name)
+                output.formula_cnf = convert_string(output.formula,
+                                                    output.name, cell.name)
 
-def build_cell_function(cell_name: str, formula: str, formula_cnf: Symbol, out_name: str, inputs: str) -> str:
-    """ Creates the cell function.
+
+def build_cell_functions(cells: list) -> str:
+    """ Creates the cell functions.
+
+    The cell function consists of the input validation and returns the 
+    formula.
 
     Args:
-        cell_name: The name of the cell.
-        formula: The formula of the cell.
-        formula_cnf: The formula converted to CNF.
-        out_name: The name of the output pin of the cell.
-        inputs: The inputs of the cell.
+        cells: The list of cells
 
     Returns:
-        The cell function as a string.
+        The cell functions as a string.
 
     """
-    CELL_FUNCTION = """
-def {name}(inputs: dict, graph: nx.DiGraph) -> Symbol:
-    ''' {name} gate.
 
-    Args:
-        inputs: {inputs}
-        graph: The networkx graph of the circuit.
-    Returns:
-        {output} = {function}
-    '''
-    p = validate_inputs(inputs, graph, '{name}')
-    return ({function_cnf})\n
-"""
-    cell_function = CELL_FUNCTION.format(name=cell_name, 
-                                         function=formula,
-                                         function_cnf=formula_cnf,
-                                         output=out_name,
-                                         inputs=inputs)
-    return cell_function
+    cell_functions = ""
 
-def build_cell_pins(inputs: dict) -> str:
+    for cell in cells:
+        for output in cell.outputs:
+            cell_name = cell.name + "_" + output.name
+            # Convert sympy formula back to string.
+            formula_cnf = str(output.formula_cnf)
+            # Use the variables checked with validate_input.
+            for in_pin in cell.inputs:
+                formula_cnf = formula_cnf.replace(in_pin, f"p['{in_pin}']")
+            formula_cnf = formula_cnf.replace(output.name, "p['node_name']")
+            # Transform the inputs list to a string.
+            inputs_str = "{ " + (", ".join(
+                [str("'" + input + "'")
+                 for input in cell.inputs])) + ",'node_name' }"
+            # Create the cell function.
+            cell_functions += CELL_FUNCTION.format(name=cell_name,
+                                                   function=output.formula,
+                                                   function_cnf=formula_cnf,
+                                                   output=output.name,
+                                                   inputs=inputs_str)
+    return cell_functions
+
+
+def build_cell_pins(cells: list) -> str:
     """ The cell pin dict contains the corresponding pins of a cell.
 
     Args:
@@ -290,15 +303,43 @@ def build_cell_pins(inputs: dict) -> str:
     Returns:
         The dict for each cell with its inputs as an entry.
     """
+    cell_pins = ""
 
-    CELL_PINS = """
-cell_pins = {{
-{cell_entry}
-}}
-"""
+    # Create the gate_in_type and in_type_pins dict.
+    # The gate_in_type dict contains the mapping <cell>=IN_TYPE
+    # E.g. the IN_TYPE for the cell OAI211_X1 with the inputs
+    # "A", "B", "C1", "C2" is "A1B1C2".
+    # The in_type_pins dict contains the mapping <IN_TYPE>=input_pins
+    # E.g. for "A1B1C2" the inputs are "A", "B", "C1", "C2".
+    in_types = {}
+    in_types_pins = {}
+    for cell in cells:
+        # IN_TYPE:
+        pins = [pins.rstrip(string.digits) for pins in cell.inputs]
+        in_type = ""
+        num_pins = {pin: pins.count(pin) for pin in pins}
+        for pin, num_pin in num_pins.items():
+            in_type += pin + str(num_pin)
+        in_types[cell.name] = in_type
+        # IN_TYPE_PINS:
+        input_str = "{ " + (", ".join(
+            [str("'" + input + "'")
+             for input in cell.inputs])) + ",'node_name' }"
+        in_types_pins[in_type] = input_str
+    # Add gate_in_type dict to the output string.
+    in_types = [
+        f"  '{cell_name}': '{in_type}',"
+        for cell_name, in_type in in_types.items()
+    ]
+    cell_pins += CELL_IN_TYPE.format(gate_in="\n".join(in_types))
+    # Add in_type_pins dict to the output string.
+    in_types_pins = [
+        f"  '{in_type}': {in_pins},"
+        for in_type, in_pins in in_types_pins.items()
+    ]
+    cell_pins += CELL_IN_TYPE_PINS.format(cell_in="\n".join(in_types_pins))
 
-    pins = [ f"  {cell_name}: {pins}," for cell_name, pins in inputs.items()]
-    return CELL_PINS.format(cell_entry="\n".join(pins))
+    return cell_pins
 
 
 def build_cell_mapping(cells: Cell) -> str:
@@ -310,15 +351,10 @@ def build_cell_mapping(cells: Cell) -> str:
     Returns:
         The dict for each cell with its inputs as an entry.
     """
-
-    CELL_MAPPING = """
-cell_mapping = {{
-{cell_mapping}
-}}
-"""
     cell_mappings = []
-    cell_mapping = [ f"  '{cell.name}': {cell.name}," for cell in cells]
+    cell_mapping = [f"  '{cell.name}': {cell.name}," for cell in cells]
     return CELL_MAPPING.format(cell_mapping="\n".join(cell_mapping))
+
 
 def build_cell_lib(cells: list) -> str:
     """ Converts the boolean function from a string to a clause.
@@ -328,29 +364,22 @@ def build_cell_lib(cells: list) -> str:
 
     """
     cell_lib = ""
-    cell_formulas = ""
-    
-    inputs_list = DefaultDict(list)
 
-    for cell in cells:
-        for output in cell.outputs:
-            cell_name = cell.name + "_" + output.name
-            inputs = "{ "+ (", ".join([str("'"+input+"'") for input in cell.inputs])) + ",'node_name' }"
-            inputs_list[cell_name] = inputs
-            # Create the cell function.
-            cell_formulas += build_cell_function(cell_name, output.formula, output.formula_cnf, output.name, inputs)
-    
-    cell_pins = build_cell_pins(inputs_list)
+    cell_formulas = build_cell_functions(cells)
+    cell_pins = build_cell_pins(cells)
     cell_mapping = build_cell_mapping(cells)
 
+    # Assemble the python file string.
     cell_lib += cell_header
     cell_lib += cell_pins
+    cell_lib += pin_mapping
     cell_lib += cell_in_validation
     cell_lib += cell_formulas
     cell_lib += otfi_cells
     cell_lib += cell_mapping
 
     return cell_lib
+
 
 def write_cell_lib(cell_lib_py: str, out_file: Path) -> None:
     with open(out_file, "w") as f:
