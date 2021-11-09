@@ -352,7 +352,10 @@ def build_cell_mapping(cells: Cell) -> str:
     Returns:
         The dict for each cell name string with its function.
     """
-    cell_mapping = [f"  '{cell.name}': {cell.name}," for cell in cells]
+    cell_mapping = []
+    for cell in cells:
+        for output in cell.outputs:
+            cell_mapping.append(f"  '{cell.name}_{output.name}': {cell.name}_{output.name},")
     return CELL_MAPPING.format(cell_mapping="\n".join(cell_mapping))
 
 
