@@ -10,8 +10,6 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-
-
 from liberty.parser import parse_liberty
 from sympy import Symbol, false, sympify, true
 from sympy.logic.boolalg import is_cnf, simplify_logic, to_cnf
@@ -327,11 +325,12 @@ def build_in_type_mappings(cells: list) -> str:
              for input in cell.inputs])) + ",'node_name' }"
         in_types_pins[in_type] = input_str
     # Add gate_in_type dict to the output string.
-    in_types = [
-        f"  '{cell_name}': '{in_type}',"
-        for cell_name, in_type in in_types.items()
-    ]
-    cell_pins += CELL_IN_TYPE.format(gate_in="\n".join(in_types))
+    in_types_list = []
+    for cell in cells:
+        for output in cell.outputs:
+            in_types_list.append(
+                f"  '{cell.name}_{output.name}': '{in_types[cell.name]}',")
+    cell_pins += CELL_IN_TYPE.format(gate_in="\n".join(in_types_list))
     # Add in_type_pins dict to the output string.
     in_types_pins = [
         f"  '{in_type}': {in_pins},"
@@ -355,7 +354,8 @@ def build_cell_mapping(cells: Cell) -> str:
     cell_mapping = []
     for cell in cells:
         for output in cell.outputs:
-            cell_mapping.append(f"  '{cell.name}_{output.name}': {cell.name}_{output.name},")
+            cell_mapping.append(
+                f"  '{cell.name}_{output.name}': {cell.name}_{output.name},")
     return CELL_MAPPING.format(cell_mapping="\n".join(cell_mapping))
 
 

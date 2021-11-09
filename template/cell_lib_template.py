@@ -69,12 +69,9 @@ def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
             elif graph.nodes[input.node]['node'].type == 'one_node':
                 input_symbols[input_pin] = true
             else:
-                if input_pin == 'node_name':
-                    input_symbols[input_pin] = Symbol(input.node + '_' +
-                                                      input.out_pin)
-                else:
-                    input_symbols[input_pin] = Symbol(input.node + '_' +
-                                                      input.out_pin)
+                input_symbols[input_pin] = Symbol(input.node + '_' +
+                                                  input.out_pin)
+
         return input_symbols
     else:
         logger.error(inputs)
