@@ -52,11 +52,12 @@ def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
     Returns:
         The inputs for the gate.
     '''
-    type_pins = gate_in_type[type]
+    type_extracted = type.rsplit('_', 1)[0]
+    type_pins = gate_in_type[type_extracted]
     expected_inputs = in_type_pins[type_pins]
 
     if expected_inputs <= inputs.keys():
-        input_symbols = {{}}
+        input_symbols = {}
         for input_pin, input in inputs.items():
             if graph.nodes[input.node][
                     'node'].type == 'input' and clk_name in input.node:
@@ -226,6 +227,27 @@ def output(inputs: dict, graph: nx.DiGraph) -> Symbol:
     '''
     p = validate_inputs(inputs, graph, 'output')
     return (~p['I1'] | p['node_name']) & (p['I1'] | ~p['node_name'])
+
+def register(inputs: dict, graph: nx.DiGraph) -> Symbol:
+    ''' A simplified register.
+
+    Args:
+        inputs: {'D', 'node_name'}.
+        graph: The networkx graph of the circuit.
+
+    Returns:
+        Q = 'D'
+        QN = '!D'.
+    '''
+    if graph.in_edges(inputs['node_name'].node):
+        p = validate_inputs(inputs, graph, 'register')
+        return ((~p['D'] | Symbol(inputs['node_name'].node + '_q')) &
+                (p['D'] | ~Symbol(inputs['node_name'].node + '_q'))), (
+                    (~p['D'] | ~Symbol(inputs['node_name'].node + '_qn')) &
+                    (p['D'] | Symbol(inputs['node_name'].node + '_qn')))
+    else:
+        # Register with no inputs is ignored.
+        return true
 """
 
 CELL_FUNCTION = """
@@ -251,6 +273,13 @@ E.g., the cell "OAI21_X1" with the inputs "A", "B1", "B2" is transformed to:
 CELL_IN_TYPE = """
 gate_in_type = {{
 {gate_in}
+  'register': 'D1',
+  'out_node': 'D1',
+  'xnor': 'I2',
+  'xor': 'I2',
+  'input_formula': 'I1',
+  'in_node': 'I1',
+  'output': 'I1'
 }}
 """
 
@@ -272,6 +301,10 @@ in_type_pins = {{
 CELL_MAPPING = """
 cell_mapping = {{
 {cell_mapping}
+  'DFFS_X1_Q': register,
+  'DFFS_X1_QN': register,
+  'DFFR_X1_Q': register,
+  'DFFR_X1_QN': register
 }}
 """
 
