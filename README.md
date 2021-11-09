@@ -24,7 +24,16 @@ The `examples` directory contains the netlist for the
 [aes_cipher_control](https://github.com/lowRISC/opentitan/blob/master/hw/ip/aes/rtl/aes_cipher_control.sv) 
 module synthesized with the 
 [provided](https://github.com/lowRISC/opentitan/tree/master/hw/ip/aes/pre_syn) 
-Yosys flow. To start the preprocessing phase for this  example netlist, create 
+Yosys flow using the Nangate45 library.
+
+First, the used cell library (e.g. the Nangate45 
+[library](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/tree/master/flow/platforms/nangate45/lib)) 
+needs to be converted for the framework:
+```console
+$ ./cell_lib_generator.py -c NangateOpenCellLibrary_typical.lib -o cell_lib.py
+```
+
+To start the preprocessing phase for this  example netlist, create 
 the `output` directory and invoke the parser:
 ```console
 $ ./parse.py -j examples/circuit.json -m aes_cipher_control -o output/circuit.pickle
