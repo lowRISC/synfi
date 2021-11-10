@@ -32,13 +32,18 @@
             "NOR2_X1":  [ "NAND2_X1", "OR2_X1", "XOR2_X1"],
             "AND2_X1": [ "NAND2_X1", "NOR2_X1", "XOR2_X1"],
             "XOR2_X1": [ "NAND2_X1", "NOR2_X1", "OR2_X1"],
-            "XNOR2_X1": ["XOR2_X1", "NAND2_X1", "NOR2_X1" ],
+            "XNOR2_X1": ["XOR2_X1", "NAND2_X1", "NOR2_X1"],
             "INV_X1": ["INV_X1"],
             "AOI21_X1": ["OAI21_X1"],
             "OAI21_X1": ["AOI21_X1"],
             "OAI22_X1": ["AOI22_X1"],
-            "AOI22_X1": ["OAI22_X1"]
-          },
+            "AOI22_X1": ["OAI22_X1"],
+            "OAI211_X1": ["AOI211_X1"],
+            "AOI211_X1": ["OAI211_X1"],
+            "NOR4_X1": ["OR4_X1", "NAND4_X1"],
+            "OR4_X1": ["NOR4_X1", "NAND4_X1"],
+            "NAND4_X1": ["OR4_X1", "NOR4_X1"]
+        },
         "fault_locations": {
           "$abc$16613$auto$blifparse.cc:381:parse_blif$16797": "stage_1",
           "$abc$16613$auto$blifparse.cc:381:parse_blif$16798": "stage_1",

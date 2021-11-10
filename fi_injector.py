@@ -9,6 +9,7 @@ import itertools
 import json
 import logging
 import pickle
+import sys
 import time
 from typing import DefaultDict
 
@@ -17,6 +18,7 @@ import numpy
 import ray
 
 import helpers
+import nangate45_cell_library
 from helpers import Node
 from injector_class import FiInjector
 
@@ -34,7 +36,6 @@ logger = logging.getLogger()
 
 def parse_arguments(argv):
     """ Command line argument parsing.
-
     Args:
         argv: The command line arguments.
 
@@ -60,9 +61,9 @@ def parse_arguments(argv):
                         type=int,
                         required=True,
                         help="Number of cores to use")
-    parser.add_argument("--debug",
+    parser.add_argument("--auto_fl",
                         action="store_true",
-                        help="Write intermediate graphs as .dot files")
+                        help="Automatically generate the fault locations")
     parser.add_argument("--version",
                         action="store_true",
                         help="Show version and exit")
@@ -497,8 +498,61 @@ def evaluate_fault_results(results: list, fi_model: dict) -> None:
     logger.info(helpers.header)
 
 
+def gen_fault_locations(fi_model: dict, graph: nx.DiGraph) -> dict:
+    """ Automatically generate the fault locations.
+
+    Find all combinational gates in the netlist and store into the
+    fault_locations dict. 
+
+    Args:
+        fi_model: The active fault model.
+        graph: The networkx digraph of the circuit.
+
+    Returns:
+        The generated fault locations.
+    """
+    fault_locations = {}
+
+    filter_types = {
+        "input", "output", "in_node", "out_node", "null_node", "one_node"
+    }
+    filter_types = set.union(filter_types, nangate45_cell_library.registers)
+
+    for node, attribute in graph.nodes(data=True):
+        if attribute["node"].type not in filter_types:
+            fault_locations[
+                attribute["node"].parent_name] = attribute["node"].stage
+
+    return fault_locations
+
+
+def handle_fault_locations(auto_fl: bool, fi_model: dict,
+                           graph: nx.DiGraph) -> dict:
+    """ Automatically generate the fault locations.
+
+    If auto_fl is set, automatically create the fault locations for the fault
+    model. If not, verify that the fault_location key is available in the fault
+    model.
+
+    Args:
+        auto_fl: Autogenerate the fault locations?
+        fi_model: The active fault model.
+        graph: The networkx digraph of the circuit.
+
+    Returns:
+        The fault model.
+    """
+    if auto_fl:
+        fi_model["fault_locations"] = gen_fault_locations(fi_model, graph)
+    else:
+        if "fault_locations" not in fi_model:
+            logger.error("Fault locations are missing in the fault model.")
+            sys.exit()
+    return fi_model
+
+
 def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
-                       num_cores: int) -> list:
+                       num_cores: int, auto_fl: bool) -> list:
     """ Handles each fault model of the fault model specification file.
 
     This function first extracts the target sub graph of the main circuit. Then,
@@ -511,9 +565,16 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
         fi_model_name: The name of the active fault model.
         fi_model: The active fault model.
         num_cores: The number of cores to use for the FI.
+        auto_fl: Autogenerate the fault locations?
+
+    Returns:
+        The fault result for the fault model.
     """
     # Extract the target graph from the circuit.
     target_graph = extract_graph(graph, fi_model)
+
+    # Check the fault locations or auto generate them.
+    fi_model = handle_fault_locations(auto_fl, fi_model, target_graph)
 
     # Determine all possible fault location combinations.
     fault_locations = fault_combinations(graph, fi_model)
@@ -577,7 +638,8 @@ def main(argv=None):
     results = []
     for fi_model_name, fi_model in fi_models.items():
         results.append(
-            handle_fault_model(graph, fi_model_name, fi_model, num_cores))
+            handle_fault_model(graph, fi_model_name, fi_model, num_cores,
+                               args.auto_fl))
 
     tstp_end = time.time()
     logger.info("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
