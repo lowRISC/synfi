@@ -17,7 +17,6 @@ from sympy import Symbol, false, sympify, true
 from sympy.logic.boolalg import is_cnf, simplify_logic, to_cnf
 
 import helpers
-from template.cell_lib_template import *
 
 """Part of the fault injection framework for the OpenTitan.
 
@@ -72,7 +71,7 @@ class CellLib:
     reg: str
     type_mapping: TypeMapping
     cell_formulas: list
-    cell_mapping: str
+    cell_mapping: list
 
 
 @dataclass
@@ -435,7 +434,7 @@ def build_type_mappings(cells: list) -> TypeMapping:
     return type_mapping
 
 
-def build_cell_mapping(cells: Cell) -> str:
+def build_cell_mapping(cells: Cell) -> list:
     """ The cell mapping consists the mapping from the cell name string to
     the corresponding cell function.
 
@@ -443,16 +442,14 @@ def build_cell_mapping(cells: Cell) -> str:
         cells: The list of cells.
 
     Returns:
-        The dict for each cell name string with its function.
+        The list for each cell name string with its function.
     """
     cell_mapping = []
     for cell in cells:
         for output in cell.outputs:
-            cell_mapping.append(
-                f"  '{cell.name}_{output.name}': {cell.name}_{output.name},")
-    return "\n".join(
-        cell_mapping
-    )  #CELL_MAPPING.format(cell_mapping="\n".join(cell_mapping))
+            cell_mapping.append(cell.name + "_" + output.name)
+
+    return cell_mapping
 
 
 def build_cell_lib(cells: list, cell_cfg: dict) -> CellLib:
