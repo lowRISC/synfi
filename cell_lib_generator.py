@@ -489,8 +489,6 @@ def write_cell_lib(cell_lib_template: Template, cell_lib_py: str,
 
     """
     out_file.write_text(cell_lib_template.render(cell_lib=cell_lib_py))
-    #with open(out_file, "w") as f:
-    #    f.write(cell_lib_py)
 
 
 def main(argv=None):

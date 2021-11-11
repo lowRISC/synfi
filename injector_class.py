@@ -11,7 +11,7 @@ from sympy.logic.inference import satisfiable
 import helpers
 from formula_class import FormulaBuilder
 from helpers import FIResult, Node
-from nangate45_cell_library import gate_in_type, pin_mapping
+from cell_lib import gate_in_type, gate_out_type, pin_in_mapping, pin_out_mapping
 
 
 @ray.remote
@@ -66,11 +66,12 @@ class FiInjector:
                 current_type = faulty_graph.nodes[node]["node"].type
                 faulty_graph.nodes[node]["node"].type = fault_type
                 faulty_graph.nodes[node]["node"].node_color = "red"
-                if gate_in_type[current_type] != gate_in_type[fault_type]:
-                    # We need to remap the input pins as the input type mismatches.
-                    gate_in_type_current = gate_in_type[current_type]
-                    gate_in_type_faulty = gate_in_type[fault_type]
-                    in_pin_mapping = pin_mapping[gate_in_type_current][
+                gate_in_type_current = gate_in_type[current_type]
+                gate_in_type_faulty = gate_in_type[fault_type]
+                if gate_in_type_current != gate_in_type_faulty:
+                    # We need to remap the input pins as the input type
+                    # mismatches.
+                    in_pin_mapping = pin_in_mapping[gate_in_type_current][
                         gate_in_type_faulty]
                     # Update the pin name in the node dict.
                     for pin in faulty_graph.nodes[node]["node"].inputs.keys():
@@ -83,7 +84,24 @@ class FiInjector:
                             edge[0], edge[1])["in_pin"] = in_pin_mapping[
                                 faulty_graph.get_edge_data(edge[0],
                                                            edge[1])["in_pin"]]
-
+                gate_out_type_current = gate_out_type[current_type]
+                gate_out_type_faulty = gate_out_type[fault_type]
+                if gate_out_type_current != gate_out_type_faulty:
+                    # We need to remap the output pins as the output type
+                    # mismatches.
+                    out_pin_mapping = pin_out_mapping[gate_out_type_current][
+                        gate_out_type_faulty]
+                    # Update the pin name in the node dict.
+                    for pin in faulty_graph.nodes[node]["node"].outputs.keys():
+                        faulty_graph.nodes[node]["node"].outputs[
+                            pin] = out_pin_mapping[faulty_graph.nodes[node]
+                                                  ["node"].outputs[pin]]
+                    # Update pin name in the edge.
+                    for edge in faulty_graph.out_edges(node):
+                        faulty_graph.get_edge_data(
+                            edge[0], edge[1])["out_pin"] = out_pin_mapping[
+                                faulty_graph.get_edge_data(edge[0],
+                                                           edge[1])["out_pin"]]
         return faulty_graph
 
     def _add_in_logic(self, diff_graph):

@@ -15,7 +15,7 @@ import networkx as nx
 import numpy as np
 import pkg_resources
 
-import nangate45_cell_library
+import cell_lib
 
 """Part of the fault injection framework for the OpenTitan.
 
@@ -73,7 +73,7 @@ class Node:
     """ Node class.
 
     A node represents an element (gate, ...) in the circuit.
- 
+
     """
     name: str
     parent_name: str
@@ -152,7 +152,7 @@ def get_registers(graph: nx.DiGraph) -> list:
     registers = []
     for node in graph.nodes().values():
         if ("node" in node) and (node["node"].type
-                                 in nangate45_cell_library.registers):
+                                 in cell_lib.registers):
             registers.append(node)
     return registers
 
