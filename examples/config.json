@@ -1,0 +1,5 @@
+{
+    "clk": "'clk_i'",
+    "rst": "'rst_ni'",
+    "reg": "{'DFFS_X1', 'DFFR_X1'}"
+}
