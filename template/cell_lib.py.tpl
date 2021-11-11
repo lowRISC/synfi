@@ -28,7 +28,7 @@ registers = ${cell_lib.reg}
 
 gate_in_type = {
 % for cell_name, out_type in cell_lib.type_mapping.gate_in_type.items():
-  '${cell_name}' : '${out_type}',
+  '${cell_name}': '${out_type}',
 % endfor
   'register': 'D1',
   'out_node': 'D1',
@@ -41,7 +41,7 @@ gate_in_type = {
 
 gate_in_type_out = {
 % for cell_name, out_type in cell_lib.type_mapping.gate_in_type_out.items():
-  '${cell_name}' : '${out_type}',
+  '${cell_name}': '${out_type}',
 % endfor
   'register': 'D1',
   'out_node': 'D1',
@@ -54,7 +54,7 @@ gate_in_type_out = {
 
 in_type_pins = {
 % for in_type, out_pins in cell_lib.type_mapping.in_type_pins.items():
-  '${in_type}' : ${out_pins},
+  '${in_type}': ${out_pins},
 % endfor
   'D1': {'D', 'node_name'},
   'I1': {'I1', 'node_name'},
@@ -63,13 +63,13 @@ in_type_pins = {
 
 gate_out_type = {
 % for cell_name, out_type in cell_lib.type_mapping.gate_out_type.items():
-  '${cell_name}' : '${out_type}',
+  '${cell_name}': '${out_type}',
 % endfor
 }
 
 out_type_pins = {
 % for out_type, out_pins in cell_lib.type_mapping.gate_out_type_pins.items():
-  '${out_type}' : ${out_pins},
+  '${out_type}': ${out_pins},
 % endfor
 }
 
@@ -84,9 +84,7 @@ pin_in_mapping = {
             'A2': 'B',
             'B1': 'C1',
             'B2': 'C2'
-        }
-    },
-    'A2B2': {
+        },
         'A4': {
             'A1': 'A1',
             'A2': 'A2',
@@ -100,9 +98,7 @@ pin_in_mapping = {
             'B': 'A2',
             'C1': 'B1',
             'C2': 'B2'
-        }
-    },
-    'A1B1C2': {
+        },
         'A4': {
             'A': 'A1',
             'B': 'A2',
@@ -116,9 +112,7 @@ pin_in_mapping = {
             'A2': 'A2',
             'A3': 'B1',
             'A4': 'B2'
-        }
-    },
-    'A4': {
+        },
         'A1B1C2': {
             'A1': 'A',
             'A2': 'B',
@@ -131,9 +125,7 @@ pin_in_mapping = {
             'A1': 'A',
             'A2': 'B1',
             'A3': 'B2'
-        }
-    },
-    'A3': {
+        },
         'A1B1S1': {
             'A1': 'A',
             'A2': 'B',
@@ -145,9 +137,7 @@ pin_in_mapping = {
             'A': 'A1',
             'B1': 'A2',
             'B2': 'A3'
-        }
-    },
-    'A1B2': {
+        },
         'A1B1S1': {
             'A': 'A',
             'B1': 'B',
@@ -159,9 +149,7 @@ pin_in_mapping = {
             'A': 'A1',
             'B': 'A2',
             'S': 'A3'
-        }
-    },
-    'A1B1S1': {
+        },
         'A1B2': {
             'A': 'A',
             'B': 'B1',
@@ -242,7 +230,7 @@ def AND2_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
     """ AND2_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2','node_name' }
+        inputs: { 'A1', 'A2', 'node_name' }
         graph: The networkx graph of the circuit.
     Returns:
         ZN = (A1 & A2)
@@ -325,12 +313,6 @@ def and_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
                                                inputs['node_name'].out_pin)
     elif len(inputs) == 5:
         return AND4_X1_ZN(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
-                                               inputs['node_name'].out_pin)
-    elif len(inputs) == 6:
-        return AND5_X1(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
-                                               inputs['node_name'].out_pin)
-    elif len(inputs) == 7:
-        return AND6_X1(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
                                                inputs['node_name'].out_pin)
     else:
         raise Exception('Missing and gate for output logic.')
@@ -457,7 +439,7 @@ def register(inputs: dict, graph: nx.DiGraph) -> Symbol:
 
 cell_mapping = {
 % for mapping in cell_lib.cell_mapping:
-  '${mapping}' : ${mapping},
+  '${mapping}': ${mapping},
 % endfor
   'DFFS_X1_Q': register, # Adapt to cell library.
   'DFFS_X1_QN': register, # Adapt to cell library.

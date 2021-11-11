@@ -18,7 +18,7 @@ import numpy
 import ray
 
 import helpers
-import nangate45_cell_library
+import cell_lib
 from helpers import Node
 from injector_class import FiInjector
 
@@ -516,7 +516,7 @@ def gen_fault_locations(fi_model: dict, graph: nx.DiGraph) -> dict:
     filter_types = {
         "input", "output", "in_node", "out_node", "null_node", "one_node"
     }
-    filter_types = set.union(filter_types, nangate45_cell_library.registers)
+    filter_types = set.union(filter_types, cell_lib.registers)
 
     for node, attribute in graph.nodes(data=True):
         if attribute["node"].type not in filter_types:
