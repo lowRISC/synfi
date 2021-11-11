@@ -456,7 +456,9 @@ def register(inputs: dict, graph: nx.DiGraph) -> Symbol:
         return true
 
 cell_mapping = {
-${cell_lib.cell_mapping}
+% for mapping in cell_lib.cell_mapping:
+  '${mapping}' : ${mapping},
+% endfor
   'DFFS_X1_Q': register, # Adapt to cell library.
   'DFFS_X1_QN': register, # Adapt to cell library.
   'DFFR_X1_Q': register, # Adapt to cell library.
