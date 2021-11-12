@@ -15,8 +15,6 @@ import networkx as nx
 import numpy as np
 import pkg_resources
 
-import cell_lib
-
 """Part of the fault injection framework for the OpenTitan.
 
 This module provides common helper functions used by different modules.
@@ -138,23 +136,6 @@ def print_graph_stat(graph: nx.DiGraph) -> None:
     for cnt in range(0, len(gates)):
         logger.info(gates[cnt] + ": " + str(number[cnt]))
     logger.info(header)
-
-
-def get_registers(graph: nx.DiGraph) -> list:
-    """Finds all registers in the graph.
-
-    Args:
-        graph: The netlist of the circuit.
-
-    Returns:
-        List of all register names.
-    """
-    registers = []
-    for node in graph.nodes().values():
-        if ("node" in node) and (node["node"].type
-                                 in cell_lib.registers):
-            registers.append(node)
-    return registers
 
 
 def ap_check_file_exists(file_path: str) -> Path:

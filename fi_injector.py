@@ -5,12 +5,14 @@
 
 import argparse
 import copy
+import importlib.util
 import itertools
 import json
 import logging
 import pickle
 import sys
 import time
+import types
 from typing import DefaultDict
 
 import networkx as nx
@@ -18,7 +20,6 @@ import numpy
 import ray
 
 import helpers
-import cell_lib
 from helpers import Node
 from injector_class import FiInjector
 
@@ -29,6 +30,7 @@ the effectiveness and if the countermeasure detects these faults.
 
 Typical usage:
 >>> ./fi_injector.py -p output/circuit.pickle -f examples/fault_model.json -n 16
+                     -c cell_lib_nangate45_autogen.py
 """
 
 logger = logging.getLogger()
@@ -55,6 +57,12 @@ def parse_arguments(argv):
                         type=helpers.ap_check_file_exists,
                         required=True,
                         help="Path of the circuit in pickle format")
+    parser.add_argument("-c",
+                        "--cell_lib",
+                        dest="cell_lib_path",
+                        type=helpers.ap_check_file_exists,
+                        required=True,
+                        help="Path of the converted cell library python file")
     parser.add_argument("-n",
                         "--num_cores",
                         dest="num_cores",
@@ -146,8 +154,26 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict) -> list:
     return [item for sublist in fault_combinations for item in sublist]
 
 
+def get_registers(graph: nx.DiGraph, cell_lib: types.ModuleType) -> list:
+    """Finds all registers in the graph.
+
+    Args:
+        graph: The netlist of the circuit.
+        cell_lib: The imported cell library.
+
+    Returns:
+        List of all register names.
+    """
+    registers = []
+    for node in graph.nodes().values():
+        if ("node" in node) and (node["node"].type in cell_lib.registers):
+            registers.append(node)
+    return registers
+
+
 def extract_graph_between_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
-                                stage: str) -> nx.DiGraph:
+                                stage: str,
+                                cell_lib: types.ModuleType) -> nx.DiGraph:
     """ Extract the subgraph between two nodes.
 
     Args:
@@ -155,11 +181,13 @@ def extract_graph_between_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
         node_in: The input node.
         node_out: The output node.
         stage: The current stage.
+        cell_lib: The imported cell library.
+
     Returns:
         The subgraph between node_in and node_out.
     """
     # Create a subgraph between in_node and out_node excluding other registers.
-    registers = helpers.get_registers(graph)
+    registers = get_registers(graph, cell_lib)
     nodes_exclude = [
         reg["node"].name for reg in registers
         if reg["node"].name != (node_in or node_out)
@@ -432,7 +460,8 @@ def connect_graphs(graph: nx.DiGraph, subgraph: nx.DiGraph) -> nx.DiGraph:
     return subgraph_connected
 
 
-def extract_graph(graph: nx.DiGraph, fi_model: dict) -> nx.DiGraph:
+def extract_graph(graph: nx.DiGraph, fi_model: dict,
+                  cell_lib: types.ModuleType) -> nx.DiGraph:
     """ Extract the subgraph containing all comb. and seq. logic of interest.
 
     The subgraphs between all input and output nodes defined in the fault model
@@ -441,6 +470,7 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict) -> nx.DiGraph:
     Args:
         graph: The networkx digraph of the circuit.
         fi_model: The active fault model.
+        cell_lib: The imported cell library.
     Returns:
         The extracted subgraph of the original graph.
     """
@@ -454,7 +484,7 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict) -> nx.DiGraph:
         node_in = fi_model["stages"][stage_name]["input"]
         node_out = fi_model["stages"][stage_name]["output"]
         subgraph = extract_graph_between_nodes(subgraph, node_in, node_out,
-                                               stage_name)
+                                               stage_name, cell_lib)
         # Rename the nodes to break dependencies between target graphs.
         rename_string = ("_" + stage_name)
         subgraph = helpers.rename_nodes(subgraph, rename_string, False)
@@ -498,7 +528,8 @@ def evaluate_fault_results(results: list, fi_model: dict) -> None:
     logger.info(helpers.header)
 
 
-def gen_fault_locations(fi_model: dict, graph: nx.DiGraph) -> dict:
+def gen_fault_locations(fi_model: dict, graph: nx.DiGraph,
+                        cell_lib: types.ModuleType) -> dict:
     """ Automatically generate the fault locations.
 
     Find all combinational gates in the netlist and store into the
@@ -507,6 +538,7 @@ def gen_fault_locations(fi_model: dict, graph: nx.DiGraph) -> dict:
     Args:
         fi_model: The active fault model.
         graph: The networkx digraph of the circuit.
+        cell_lib: The imported cell library.
 
     Returns:
         The generated fault locations.
@@ -526,8 +558,8 @@ def gen_fault_locations(fi_model: dict, graph: nx.DiGraph) -> dict:
     return fault_locations
 
 
-def handle_fault_locations(auto_fl: bool, fi_model: dict,
-                           graph: nx.DiGraph) -> dict:
+def handle_fault_locations(auto_fl: bool, fi_model: dict, graph: nx.DiGraph,
+                           cell_lib: types.ModuleType) -> dict:
     """ Automatically generate the fault locations.
 
     If auto_fl is set, automatically create the fault locations for the fault
@@ -538,12 +570,14 @@ def handle_fault_locations(auto_fl: bool, fi_model: dict,
         auto_fl: Autogenerate the fault locations?
         fi_model: The active fault model.
         graph: The networkx digraph of the circuit.
+        cell_lib: The imported cell library.
 
     Returns:
         The fault model.
     """
     if auto_fl:
-        fi_model["fault_locations"] = gen_fault_locations(fi_model, graph)
+        fi_model["fault_locations"] = gen_fault_locations(
+            fi_model, graph, cell_lib)
     else:
         if "fault_locations" not in fi_model:
             logger.error("Fault locations are missing in the fault model.")
@@ -552,7 +586,8 @@ def handle_fault_locations(auto_fl: bool, fi_model: dict,
 
 
 def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
-                       num_cores: int, auto_fl: bool) -> list:
+                       num_cores: int, auto_fl: bool,
+                       cell_lib: types.ModuleType) -> list:
     """ Handles each fault model of the fault model specification file.
 
     This function first extracts the target sub graph of the main circuit. Then,
@@ -566,15 +601,17 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
         fi_model: The active fault model.
         num_cores: The number of cores to use for the FI.
         auto_fl: Autogenerate the fault locations?
+        cell_lib: The imported cell library.
 
     Returns:
         The fault result for the fault model.
     """
     # Extract the target graph from the circuit.
-    target_graph = extract_graph(graph, fi_model)
+    target_graph = extract_graph(graph, fi_model, cell_lib)
 
     # Check the fault locations or auto generate them.
-    fi_model = handle_fault_locations(auto_fl, fi_model, target_graph)
+    fi_model = handle_fault_locations(auto_fl, fi_model, target_graph,
+                                      cell_lib)
 
     # Determine all possible fault location combinations.
     fault_locations = fault_combinations(graph, fi_model)
@@ -588,8 +625,8 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
 
     # Use ray to distribute fault injection to num_cores processes.
     workers = [
-        FiInjector.remote(fi_model_name, target_graph, fl_share, fi_model)
-        for fl_share in fl_shares
+        FiInjector.remote(fi_model_name, target_graph, fl_share, fi_model,
+                          cell_lib) for fl_share in fl_shares
     ]
 
     # Perform the attack and collect the results.
@@ -611,11 +648,35 @@ def test_main():
     """
     res = main([
         "-p", "circuit.pickle", "-f", "examples/fault_model_pytest.json", "-n",
-        "1"
+        "1", "-c", "cell_lib_nangate45_autogen.py"
     ])
 
     assert res[0][0].sat_result == True
     assert res[0][1].sat_result == False
+
+
+def load_cell_lib_module(args) -> types.ModuleType:
+    """ Load the cell library module.
+
+    The cell library python module is passed to the FI injector and loaded in
+    this function.
+
+    Args:
+        args: The passed arguments
+
+    Returns:
+        The loaded cell library.
+    """
+    spec = importlib.util.spec_from_file_location("cell_lib",
+                                                  args.cell_lib_path)
+    if not spec:
+        logger.error("Failed to load cell library.")
+        sys.exit()
+
+    cell_lib = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cell_lib)
+
+    return cell_lib
 
 
 def main(argv=None):
@@ -626,6 +687,7 @@ def main(argv=None):
 
     tstp_begin = time.time()
     args = parse_arguments(argv)
+    cell_lib = load_cell_lib_module(args)
     num_cores = args.num_cores
     ray.init(num_cpus=num_cores)
 
@@ -639,7 +701,7 @@ def main(argv=None):
     for fi_model_name, fi_model in fi_models.items():
         results.append(
             handle_fault_model(graph, fi_model_name, fi_model, num_cores,
-                               args.auto_fl))
+                               args.auto_fl, cell_lib))
 
     tstp_end = time.time()
     logger.info("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
