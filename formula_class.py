@@ -6,8 +6,8 @@ import logging
 
 from sympy import Symbol, true
 
+import helpers
 from helpers import InputPin
-from nangate45_cell_library import cell_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +18,15 @@ class FormulaBuilder:
     This class provides functionality to a networkx graph into a boolean formula
     in CNF.
     """
-    def __init__(self, graph):
+    def __init__(self, graph, cell_lib):
         """ Inits the FormulaBuilder class
 
         Args:
             graph: The graph to transform.
+            cell_lib: The imported cell library.
         """
         self.graph = graph
+        self.cell_lib = cell_lib
 
     def transform_graph(self) -> Symbol:
         """ Transforms the graph into a boolean formula in CNF.
@@ -47,6 +49,7 @@ class FormulaBuilder:
                 for wire, out_pin in node_attribute["node"].outputs.items():
                     inputs = {}
                     inputs["node_name"] = InputPin(node, out_pin)
+                    node_type_out = node_type + "_" + out_pin
                     # Get the input pins of the current node. As an input pin
                     # can be connected to a node having multiple outputs (e.g.
                     # Q or QN), we have to also store the output pin of the
@@ -63,15 +66,17 @@ class FormulaBuilder:
                     # than we have a predefined input value of one/zero for this
                     # input. Else we ignore input ports.
                     if node_type == "input" and len(inputs) > 1:
-                        sub_expressions.append(cell_mapping[node_type](
-                            inputs, self.graph))
-                    elif node_type != "input":
-                        if node_type in cell_mapping:
-                            sub_expressions.append(cell_mapping[node_type](
+                        sub_expressions.append(
+                            self.cell_lib.cell_mapping[node_type_out](
                                 inputs, self.graph))
+                    elif node_type != "input":
+                        if node_type_out in self.cell_lib.cell_mapping:
+                            sub_expressions.append(
+                                self.cell_lib.cell_mapping[node_type_out](
+                                    inputs, self.graph))
                         else:
                             logger.error(
-                                f"Err: Gate type {node_type} not found.")
+                                f"Err: Gate type {node_type_out} not found.")
 
         # Create the final boolean formula by ANDing all sub expressions.
         cnf = true
