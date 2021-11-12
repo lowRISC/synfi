@@ -30,19 +30,22 @@ The convert a cell library (e.g., the
 [NANGATE45](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/tree/master/flow/platforms/nangate45/lib) library), 
 adapt the `examples/config.json` file and start the cell library generator:
 ```console
-$ ./cell_lib_generator.py -l NangateOpenCellLibrary_typical.lib -c examples/config.json -o cell_lib_nangate45_autogen.py
+$ ./cell_lib_generator.py -l NangateOpenCellLibrary_typical.lib \
+    -c examples/config.json -o cell_lib_nangate45_autogen.py
 ```
 To start the preprocessing phase for this  example netlist, create 
 the `output` directory and invoke the parser:
 ```console
-$ ./parse.py -j examples/circuit.json -m aes_cipher_control -o output/circuit.pickle
+$ ./parse.py -j examples/circuit.json -m aes_cipher_control \
+    -o output/circuit.pickle
 ```
 The parser preprocesses the provided netlist and creates a directed graph, which
 is then used by the fault injector to evaluate the effects of the induced 
 faults. To run the fault injector with the example netlist and the example fault
 model, execute the fi_injector tool:
 ```console
-$ ./fi_injector.py -p output/circuit.pickle -f examples/fault_model.json -n 16 -c cell_lib_nangate45_autogen.py
+$ ./fi_injector.py -p output/circuit.pickle -f examples/fault_model.json -n 16 \
+    -c cell_lib_nangate45_autogen.py
 ```
 
 ## Licensing
