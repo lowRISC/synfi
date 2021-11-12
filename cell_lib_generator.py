@@ -27,7 +27,8 @@ needed by the FI Injector.
 
 Typical usage:
 >>> ./cell_lib_generator.py -l NangateOpenCellLibrary_typical.lib 
-                            -c examples/config.json -o cell_lib.py
+                            -c examples/config.json 
+                            -o cell_lib_nangate45_autogen.py
 """
 
 

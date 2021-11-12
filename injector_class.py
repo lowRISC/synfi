@@ -11,7 +11,6 @@ from sympy.logic.inference import satisfiable
 import helpers
 from formula_class import FormulaBuilder
 from helpers import FIResult, Node
-from cell_lib import gate_in_type, gate_out_type, pin_in_mapping, pin_out_mapping
 
 
 @ray.remote
@@ -23,7 +22,8 @@ class FiInjector:
     extract the boolean CNF formula of this graph, and to hand the formula to
     a SAT solver.
     """
-    def __init__(self, fault_name, target_graph, fault_locations, fault_model):
+    def __init__(self, fault_name, target_graph, fault_locations, fault_model,
+                 cell_lib):
         """ Inits the injector class
 
         This function injects faults into the graph by replacing the type of
@@ -33,12 +33,14 @@ class FiInjector:
             fault_name: The fault model name of the current attack.
             target_graph: The graph to be evaluated.
             fault_locations: The location and fault mapping of the faults.
-            fault_model: The fault model
+            fault_model: The fault model.
+            cell_lib: The imported cell library.
         """
         self.fault_name = fault_name
         self.target_graph = target_graph
         self.fault_locations = fault_locations
         self.fault_model = fault_model
+        self.cell_lib = cell_lib
 
     def _inject_faults(self, fault_location):
         """ Inject faults into the target graph accoding to the fault location.
@@ -66,13 +68,13 @@ class FiInjector:
                 current_type = faulty_graph.nodes[node]["node"].type
                 faulty_graph.nodes[node]["node"].type = fault_type
                 faulty_graph.nodes[node]["node"].node_color = "red"
-                gate_in_type_current = gate_in_type[current_type]
-                gate_in_type_faulty = gate_in_type[fault_type]
+                gate_in_type_current = self.cell_lib.gate_in_type[current_type]
+                gate_in_type_faulty = self.cell_lib.gate_in_type[fault_type]
                 if gate_in_type_current != gate_in_type_faulty:
                     # We need to remap the input pins as the input type
                     # mismatches.
-                    in_pin_mapping = pin_in_mapping[gate_in_type_current][
-                        gate_in_type_faulty]
+                    in_pin_mapping = self.cell_lib.pin_in_mapping[
+                        gate_in_type_current][gate_in_type_faulty]
                     # Update the pin name in the node dict.
                     for pin in faulty_graph.nodes[node]["node"].inputs.keys():
                         faulty_graph.nodes[node]["node"].inputs[
@@ -84,18 +86,19 @@ class FiInjector:
                             edge[0], edge[1])["in_pin"] = in_pin_mapping[
                                 faulty_graph.get_edge_data(edge[0],
                                                            edge[1])["in_pin"]]
-                gate_out_type_current = gate_out_type[current_type]
-                gate_out_type_faulty = gate_out_type[fault_type]
+                gate_out_type_current = self.cell_lib.gate_out_type[
+                    current_type]
+                gate_out_type_faulty = self.cell_lib.gate_out_type[fault_type]
                 if gate_out_type_current != gate_out_type_faulty:
                     # We need to remap the output pins as the output type
                     # mismatches.
-                    out_pin_mapping = pin_out_mapping[gate_out_type_current][
-                        gate_out_type_faulty]
+                    out_pin_mapping = self.cell_lib.pin_out_mapping[
+                        gate_out_type_current][gate_out_type_faulty]
                     # Update the pin name in the node dict.
                     for pin in faulty_graph.nodes[node]["node"].outputs.keys():
                         faulty_graph.nodes[node]["node"].outputs[
                             pin] = out_pin_mapping[faulty_graph.nodes[node]
-                                                  ["node"].outputs[pin]]
+                                                   ["node"].outputs[pin]]
                     # Update pin name in the edge.
                     for edge in faulty_graph.out_edges(node):
                         faulty_graph.get_edge_data(
@@ -346,7 +349,7 @@ class FiInjector:
             diff_graph = self._create_diff_graph(faulty_graph)
 
             # Transform the differential graph to a boolean formula
-            formula_builder = FormulaBuilder(diff_graph)
+            formula_builder = FormulaBuilder(diff_graph, self.cell_lib)
             cnf = formula_builder.transform_graph()
 
             # Hand the boolean formula to the SAT solver.
