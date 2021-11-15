@@ -11,7 +11,6 @@ from helpers import InputPin
 
 logger = logging.getLogger(__name__)
 
-
 class FormulaBuilder:
     """ Class for converting a graph into a boolean formula.
 
@@ -75,8 +74,11 @@ class FormulaBuilder:
                                 self.cell_lib.cell_mapping[node_type_out](
                                     inputs, self.graph))
                         else:
-                            logger.error(
-                                f"Err: Gate type {node_type_out} not found.")
+                            # Report missing gate type for gates with inputs.
+                            if self.graph.in_edges(node):
+                                logger.error(
+                                    f"Err: Gate type {node_type_out} not found."
+                                )
 
         # Create the final boolean formula by ANDing all sub expressions.
         cnf = true

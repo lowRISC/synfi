@@ -52,6 +52,25 @@ gate_in_type_out = {
   'input_formula': 'I1',
   'in_node': 'I1',
   'output': 'I1'
+  'AND10': 'A10',
+  'AND9': 'A9',
+  'AND8': 'A8',
+  'AND7': 'A7',
+  'AND6': 'A6',
+  'AND5': 'A5',
+  'AND4': 'A4',
+  'AND3': 'A3',
+  'AND2': 'A2',
+  'OR10': 'A10',
+  'OR9': 'A9',
+  'OR8': 'A8',
+  'OR7': 'A7',
+  'OR6': 'A6',
+  'OR5': 'A5',
+  'OR4': 'A4',
+  'OR3': 'A3',
+  'OR2': 'A2',
+  'OR1': 'A1'
 }
 
 in_type_pins = {
@@ -60,8 +79,19 @@ in_type_pins = {
 % endfor
   'D1': {'D', 'node_name'},
   'I1': {'I1', 'node_name'},
-  'I2': {'I1', 'I2', 'node_name'}
+  'I2': {'I1', 'I2', 'node_name'},
+  'AO1': {'A1', 'node_name'},
+  'A2': {'A1', 'A2', 'node_name'},
+  'A3': {'A1', 'A2', 'A3', 'node_name'},
+  'A4': {'A1', 'A2', 'A3', 'A4', 'node_name'},
+  'A5': {'A1', 'A2', 'A3', 'A4', 'A5', 'node_name'},
+  'A6': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'node_name'},
+  'A7': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'node_name'},
+  'A8': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'node_name'},
+  'A9': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'node_name'},
+  'A10': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'node_name'}
 }
+
 
 gate_out_type = {
 % for cell_name, out_type in cell_lib.type_mapping.gate_out_type.items():
@@ -190,6 +220,30 @@ pin_out_mapping = {
 #                                DO NOT EDIT                                   #
 ################################################################################
 
+def rename_inputs(inputs: dict, type: str) -> dict:
+    """ Rename the inputs for the current gate.
+
+    As certain variables (e.g., "I", "S") are predefined by sympy, the cell lib
+    generator renamed these pins for all gates in the cell library. Now, rename
+    these pins also for the gates handed by the FI injector.
+
+    Args:
+        inputs: The list of provided inputs.
+        type: The type of the gate.
+
+    Returns:
+        The renamed inputs for the gate.
+    """
+    filter_types = {"in_node", "out_node", "input", "output", "input_formula",
+                    "xnor", "xor"}
+    inputs_formated = {}
+    for input, input_pin in inputs.items():
+        if type not in filter_types:
+            if "S" in input: input = input.replace("S", "K")
+            if "I" in input: input = input.replace("I", "L")
+        inputs_formated[input] = input_pin
+    return inputs_formated
+
 def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
     """ Validates the provided input of the gate.
 
@@ -205,6 +259,8 @@ def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
     """
     type_pins = gate_in_type_out[type]
     expected_inputs = in_type_pins[type_pins]
+
+    inputs = rename_inputs(inputs, type)
 
     if expected_inputs <= inputs.keys():
         input_symbols = {}
@@ -308,17 +364,179 @@ def and_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
         ZN = 'A1 & ... & AN' & node_name.
     """
     if len(inputs) == 3:
-        return AND2_X1_ZN(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
-                                               inputs['node_name'].out_pin)
+        p = validate_inputs(inputs, graph, 'AND2')
+        return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
+                (p['node_name'] | ~p['A1']
+                 | ~p['A2'])) & Symbol(inputs['node_name'].node + '_' +
+                                       inputs['node_name'].out_pin)
     elif len(inputs) == 4:
-        return AND3_X1_ZN(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
-                                               inputs['node_name'].out_pin)
+        p = validate_inputs(inputs, graph, 'AND3')
+        return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
+                (p['A3'] | ~p['node_name']) &
+                (p['node_name'] | ~p['A1'] | ~p['A2']
+                 | ~p['A3'])) & Symbol(inputs['node_name'].node + '_' +
+                                       inputs['node_name'].out_pin)
     elif len(inputs) == 5:
-        return AND4_X1_ZN(inputs, graph) & Symbol(inputs['node_name'].node + '_' +
-                                               inputs['node_name'].out_pin)
+        p = validate_inputs(inputs, graph, 'AND4')
+        return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
+                (p['A3'] | ~p['node_name']) & (p['A4'] | ~p['node_name']) &
+                (p['node_name'] | ~p['A1'] | ~p['A2'] | ~p['A3']
+                 | ~p['A4'])) & Symbol(inputs['node_name'].node + '_' +
+                                       inputs['node_name'].out_pin)
+    elif len(inputs) == 6:
+        p = validate_inputs(inputs, graph, 'AND5')
+        return (
+            (~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['A4'] | ~p['A5']
+             | p['node_name']) & (p['A1'] | ~p['node_name']) &
+            (p['A2'] | ~p['node_name']) & (p['A3'] | ~p['node_name']) &
+            (p['A4'] | ~p['node_name']) &
+            (p['A5'] | ~p['node_name'])) & Symbol(inputs['node_name'].node +
+                                                  '_' +
+                                                  inputs['node_name'].out_pin)
+    elif len(inputs) == 7:
+        p = validate_inputs(inputs, graph, 'AND6')
+        return (
+            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
+             | p["node_name"]) & (p["A1"] | ~p["node_name"]) &
+            (p["A2"] | ~p["node_name"]) & (p["A3"] | ~p["node_name"]) &
+            (p["A4"] | ~p["node_name"]) & (p["A5"] | ~p["node_name"]) &
+            (p["A6"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
+                                                  '_' +
+                                                  inputs['node_name'].out_pin)
+    elif len(inputs) == 8:
+        p = validate_inputs(inputs, graph, 'AND7')
+        return (
+            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
+             | ~p["A7"] | p["node_name"]) & (p["A1"] | ~p["node_name"]) &
+            (p["A2"] | ~p["node_name"]) & (p["A3"] | ~p["node_name"]) &
+            (p["A4"] | ~p["node_name"]) & (p["A5"] | ~p["node_name"]) &
+            (p["A6"] | ~p["node_name"]) &
+            (p["A7"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
+                                                  '_' +
+                                                  inputs['node_name'].out_pin)
+    elif len(inputs) == 9:
+        p = validate_inputs(inputs, graph, 'AND8')
+        return (
+            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
+             | ~p["A7"] | ~p["A8"] | p["node_name"]) &
+            (p["A1"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
+            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
+            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
+            (p["A7"] | ~p["node_name"]) &
+            (p["A8"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
+                                                  '_' +
+                                                  inputs['node_name'].out_pin)
+    elif len(inputs) == 10:
+        p = validate_inputs(inputs, graph, 'AND9')
+        return (
+            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
+             | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
+            (p["A1"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
+            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
+            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
+            (p["A7"] | ~p["node_name"]) & (p["A8"] | ~p["node_name"]) &
+            (p["A9"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
+                                                  '_' +
+                                                  inputs['node_name'].out_pin)
+    elif len(inputs) == 11:
+        p = validate_inputs(inputs, graph, 'AND10')
+        return (
+            (~p["A1"] | ~p["A10"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"]
+             | ~p["A6"] | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
+            (p["A1"] | ~p["node_name"]) & (p["A10"] | ~p["node_name"]) &
+            (p["A2"] | ~p["node_name"]) & (p["A3"] | ~p["node_name"]) &
+            (p["A4"] | ~p["node_name"]) & (p["A5"] | ~p["node_name"]) &
+            (p["A6"] | ~p["node_name"]) & (p["A7"] | ~p["node_name"]) &
+            (p["A8"] | ~p["node_name"]) &
+            (p["A9"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
+                                                  '_' +
+                                                  inputs['node_name'].out_pin)
     else:
         raise Exception('Missing and gate for output logic.')
 
+def or_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
+    """ or gate.
+
+    OR gate for the output logic.
+
+    Args:
+        inputs: {'A1', ..., 'AN', 'node_name'}.
+        graph: The networkx graph of the circuit.
+
+    Returns:
+        ZN = 'A1 | ... | AN' | node_name.
+    """
+    if len(inputs) == 2:
+        p = validate_inputs(inputs, graph, 'OR1')
+        return ((~p["A1"]  | p["node_name"]) & (p["A1"] | ~p["node_name"]))
+    elif len(inputs) == 3:
+        p = validate_inputs(inputs, graph, 'OR2')
+        return ((~p["A1"] | p["node_name"]) &
+                (p["A1"] | p["A2"] | ~p["node_name"]) &
+                (~p["A2"] | p["node_name"]))
+    elif len(inputs) == 4:
+        p = validate_inputs(inputs, graph, 'OR3')
+        return ((~p["A1"] | p["node_name"]) &
+                (p["A1"] | p["A2"] | p["A3"] | ~p["node_name"]) &
+                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]))
+    elif len(inputs) == 5:
+        p = validate_inputs(inputs, graph, 'OR4')
+        return ((~p["A1"] | p["node_name"]) &
+                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | ~p["node_name"]) &
+                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
+                (~p["A4"] | p["node_name"]))
+    elif len(inputs) == 6:
+        p = validate_inputs(inputs, graph, 'OR5')
+        return (
+            (~p["A1"] | p["node_name"]) &
+            (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | ~p["node_name"])
+            & (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
+            (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]))
+    elif len(inputs) == 7:
+        p = validate_inputs(inputs, graph, 'OR6')
+        return ((~p["A1"] | p["node_name"]) &
+                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
+                 | ~p["node_name"]) & (~p["A2"] | p["node_name"]) &
+                (~p["A3"] | p["node_name"]) & (~p["A4"] | p["node_name"]) &
+                (~p["A5"] | p["node_name"]) & (~p["A6"] | p["node_name"]))
+    elif len(inputs) == 8:
+        p = validate_inputs(inputs, graph, 'OR7')
+        return ((~p["A1"] | p["node_name"]) &
+                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
+                 | p["A7"] | ~p["node_name"]) & (~p["A2"] | p["node_name"]) &
+                (~p["A3"] | p["node_name"]) & (~p["A4"] | p["node_name"]) &
+                (~p["A5"] | p["node_name"]) & (~p["A6"] | p["node_name"]) &
+                (~p["A7"] | p["node_name"]))
+    elif len(inputs) == 9:
+        p = validate_inputs(inputs, graph, 'OR8')
+        return ((~p["A1"] | p["node_name"]) &
+                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
+                 | p["A7"] | p["A8"] | ~p["node_name"]) &
+                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
+                (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]) &
+                (~p["A6"] | p["node_name"]) & (~p["A7"] | p["node_name"]) &
+                (~p["A8"] | p["node_name"]))
+    elif len(inputs) == 10:
+        p = validate_inputs(inputs, graph, 'OR9')
+        return ((~p["A1"] | p["node_name"]) &
+                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
+                 | p["A7"] | p["A8"] | p["A9"] | ~p["node_name"]) &
+                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
+                (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]) &
+                (~p["A6"] | p["node_name"]) & (~p["A7"] | p["node_name"]) &
+                (~p["A8"] | p["node_name"]) & (~p["A9"] | p["node_name"]))
+    elif len(inputs) == 11:
+        p = validate_inputs(inputs, graph, 'OR10')
+        return ((~p["A1"] | p["node_name"]) &
+                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
+                 | p["A7"] | p["A8"] | p["A9"] | p["A10"] | ~p["node_name"]) &
+                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
+                (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]) &
+                (~p["A6"] | p["node_name"]) & (~p["A7"] | p["node_name"]) &
+                (~p["A8"] | p["node_name"]) & (~p["A9"] | p["node_name"]) &
+                (~p["A10"] | p["node_name"]))
+    else:
+        raise Exception('Missing or gate for output logic.')
 
 def input_formula_Q(inputs: dict, graph: nx.DiGraph) -> Symbol:
     """ Sets a input pin to a predefined (0 or 1) value.
@@ -418,38 +636,14 @@ def output(inputs: dict, graph: nx.DiGraph) -> Symbol:
     p = validate_inputs(inputs, graph, 'output')
     return (~p['I1'] | p['node_name']) & (p['I1'] | ~p['node_name'])
 
-def register(inputs: dict, graph: nx.DiGraph) -> Symbol:
-    """ A simplified register.
-
-    Args:
-        inputs: {'D', 'node_name'}.
-        graph: The networkx graph of the circuit.
-
-    Returns:
-        Q = 'D'
-        QN = '!D'.
-    """
-    if graph.in_edges(inputs['node_name'].node):
-        p = validate_inputs(inputs, graph, 'register')
-        return ((~p['D'] | Symbol(inputs['node_name'].node + '_q')) &
-                (p['D'] | ~Symbol(inputs['node_name'].node + '_q'))), (
-                    (~p['D'] | ~Symbol(inputs['node_name'].node + '_qn')) &
-                    (p['D'] | Symbol(inputs['node_name'].node + '_qn')))
-    else:
-        # Register with no inputs is ignored.
-        return true
-
 cell_mapping = {
 % for mapping in cell_lib.cell_mapping:
   '${mapping}': ${mapping},
 % endfor
-  'DFFS_X1_Q': register, # Adapt to cell library.
-  'DFFS_X1_QN': register, # Adapt to cell library.
-  'DFFR_X1_Q': register, # Adapt to cell library.
-  'DFFR_X1_QN': register, # Adapt to cell library.
   'xnor_O': xnor,
   'xor_O': xor,
-  'and_Q': and_output,
+  'and_O': and_output,
+  'or_O': or_output,
   'input_Q': input_formula_Q,
   'input_QN': input_formula_QN,
   'in_node_Q': in_node_Q,
