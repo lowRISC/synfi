@@ -12,7 +12,6 @@ import helpers
 from formula_class import FormulaBuilder
 from helpers import FIResult, Node
 
-
 @ray.remote
 class FiInjector:
     """ Class for performing distributed fault injections.
@@ -182,6 +181,7 @@ class FiInjector:
             The differential graph with the XORs and XNORs.
         """
         out_nodes_added = []
+        out_nodes_faulty_added = []
 
         for node_target, value in values.items():
             # Add XNOR/XOR node for each output node and connect with this port.
@@ -214,7 +214,10 @@ class FiInjector:
                              stage="out_stage",
                              node_color="purple")
                     })
-                out_nodes_added.append(node_name)
+                if ("_faulty" in node) and (not alert):
+                    out_nodes_faulty_added.append(node_name)
+                else:
+                    out_nodes_added.append(node_name)
                 if value == 1:
                     diff_graph_out_logic.add_edge("one",
                                                   node_name,
@@ -234,7 +237,34 @@ class FiInjector:
                                               in_pin="I2")
                 diff_graph_out_logic.nodes[node]["node"].outputs = {0: "O"}
                 diff_graph_out_logic.nodes[node]["node"].inputs = {0: "I"}
-        return out_nodes_added
+        return out_nodes_added, out_nodes_faulty_added
+
+    def _connect_outputs(self, diff_graph_out_logic, out_nodes, out_logic):
+        # Flatten the list.
+        out_nodes = [item for sublist in out_nodes for item in sublist]
+        # Connect the outputs of the XNOR/XORs with a AND.
+        out_name = "output_logic_" + out_logic
+        diff_graph_out_logic.add_node(
+            out_name, **{
+                "node":
+                Node(name=out_name,
+                     parent_name=out_name,
+                     type=out_logic,
+                     inputs={0: "I"},
+                     outputs={0: "O"},
+                     stage="",
+                     node_color="purple")
+            })
+        cntr = 1
+        for out_node in out_nodes:
+            diff_graph_out_logic.add_edge(out_node,
+                                          out_name,
+                                          name=out_logic + "_wire",
+                                          out_pin="O",
+                                          in_pin="A" + str(cntr))
+            cntr = cntr + 1
+
+        return out_name
 
     def _add_out_logic(self, diff_graph):
         """ Add the output logic to the differential graph.
@@ -259,40 +289,35 @@ class FiInjector:
         output_values = self.fault_model["output_values"]
         alert_values = self.fault_model["alert_values"]
         out_nodes_added = []
+        out_nodes_faulty_added = []
         # Add the output logic for the output values.
-        out_nodes_added.append(
-            self._add_xor_xnor(diff_graph_out_logic, diff_graph, output_values,
-                               False))
+        out_nodes = self._add_xor_xnor(diff_graph_out_logic, diff_graph,
+                                       output_values, False)
+        out_nodes_added.append(out_nodes[0])
+        out_nodes_faulty_added.append(out_nodes[1])
         # Add the output logic for the alert values.
-        out_nodes_added.append(
-            self._add_xor_xnor(diff_graph_out_logic, diff_graph, alert_values,
-                               True))
-        # Flatten the list.
-        out_nodes_added = [
-            item for sublist in out_nodes_added for item in sublist
-        ]
+        out_nodes = self._add_xor_xnor(diff_graph_out_logic, diff_graph,
+                                       alert_values, True)
+        out_nodes_added.append(out_nodes[0])
+        out_nodes_faulty_added.append(out_nodes[1])
 
-        # Connect the outputs of the XNOR/XORs with a AND.
-        out_name = "output_logic_and"
-        diff_graph_out_logic.add_node(
-            out_name, **{
-                "node":
-                Node(name=out_name,
-                     parent_name=out_name,
-                     type="and",
-                     inputs={0: "I"},
-                     outputs={0: "Q"},
-                     stage="",
-                     node_color="purple")
-            })
-        cntr = 1
-        for out_node in out_nodes_added:
-            diff_graph_out_logic.add_edge(out_node,
-                                          out_name,
-                                          name="and_wire",
-                                          out_pin="O",
-                                          in_pin="A" + str(cntr))
-            cntr = cntr + 1
+        # OR all faulty XORs.
+        or_output = self._connect_outputs(diff_graph_out_logic,
+                                          out_nodes_faulty_added, "or")
+
+        # AND all output nodes (non-faulty and alert).
+        and_output = self._connect_outputs(diff_graph_out_logic,
+                                           out_nodes_added, "and")
+
+        # Connect the output of the OR logic with the AND output logic.
+        num_in_edges = 1
+        for edge in diff_graph_out_logic.in_edges(and_output):
+            num_in_edges += 1
+        diff_graph_out_logic.add_edge(or_output,
+                                      and_output,
+                                      name="and_wire",
+                                      out_pin="O",
+                                      in_pin="A" + str(num_in_edges))
 
         return diff_graph_out_logic
 

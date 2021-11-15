@@ -361,7 +361,7 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
     return graph
 
 
-def add_in_nodes(graph: nx.DiGraph, subgraph: nx.DiGraph, in_node: str,
+def add_in_nodes(graph: nx.DiGraph, subgraph: nx.DiGraph, in_nodes: list,
                  rename_string: str, stage: str) -> nx.DiGraph:
     """ Add the missing input nodes to the target subgraph.
 
@@ -372,12 +372,16 @@ def add_in_nodes(graph: nx.DiGraph, subgraph: nx.DiGraph, in_node: str,
     Args:
         graph: The original digraph of the circuit.
         subgraph: The extracted target graph.
-        in_node: The input node of the extracted target graph.
+        in_nodes: The input nodes of the extracted target graph.
         rename_string: The suffix, which is appended to the original node name.
         stage: The current stage.
     Returns:
         The subgraph augmented with the input nodes.
     """
+
+    in_nodes_renamed = []
+    for in_node in in_nodes:
+        in_nodes_renamed.append(in_node + rename_string)
 
     subgraph_in_nodes = copy.deepcopy(subgraph)
     orig_graph = copy.deepcopy(graph)
@@ -386,7 +390,7 @@ def add_in_nodes(graph: nx.DiGraph, subgraph: nx.DiGraph, in_node: str,
     for node, node_attribute in subgraph.nodes(data=True):
         if (len(subgraph.in_edges(node)) != len(node_attribute["node"].inputs)
             ) and (node_attribute["node"].type
-                   not in filter_types) and (node != in_node + rename_string):
+                   not in filter_types) and (node not in in_nodes_renamed):
             # Get all in edges of the subgraph.
             subgraph_in_edges = subgraph.in_edges(node)
             subgraph_in_edges_name = []
@@ -481,25 +485,32 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict,
         # Extract the target graph.
         subgraph = copy.deepcopy(graph)
         stage_name = stage
-        node_in = fi_model["stages"][stage_name]["input"]
-        node_out = fi_model["stages"][stage_name]["output"]
-        subgraph = extract_graph_between_nodes(subgraph, node_in, node_out,
-                                               stage_name, cell_lib)
+        stage_graphs = []
+        for node_in in fi_model["stages"][stage_name]["inputs"]:
+            for node_out in fi_model["stages"][stage_name]["outputs"]:
+                stage_graphs.append(
+                    extract_graph_between_nodes(subgraph, node_in, node_out,
+                                                stage_name, cell_lib))
+        stage_graph = nx.compose_all(stage_graphs)
         # Rename the nodes to break dependencies between target graphs.
         rename_string = ("_" + stage_name)
-        subgraph = helpers.rename_nodes(subgraph, rename_string, False)
+        stage_graph = helpers.rename_nodes(stage_graph, rename_string, False)
         # Set input and output node of the target graphs.
-        subgraph = set_in_out_nodes(subgraph, node_in, node_out, rename_string,
-                                    fi_model, stage)
+        for cnt in range(len(fi_model["stages"][stage_name]["inputs"])):
+            node_in = fi_model["stages"][stage_name]["inputs"][cnt]
+            node_out = fi_model["stages"][stage_name]["outputs"][cnt]
+            stage_graph = set_in_out_nodes(stage_graph, node_in, node_out,
+                                           rename_string, fi_model, stage)
         # Add missing input nodes for the gates.
-        subgraph = add_in_nodes(graph, subgraph, node_in, rename_string, stage)
+        stage_graph = add_in_nodes(graph, stage_graph,
+                                   fi_model["stages"][stage_name]["inputs"],
+                                   rename_string, stage)
         # Append the target graph to the list of graphs.
-        extracted_graphs.append(subgraph)
+        extracted_graphs.append(stage_graph)
     # Merge all graphs into the target graph.
     extracted_graph = nx.compose_all(extracted_graphs)
     # Connect the subgraphs in the target graph.
     extracted_graph = connect_graphs(graph, extracted_graph)
-
     return extracted_graph
 
 
@@ -652,7 +663,8 @@ def test_main():
     ])
 
     assert res[0][0].sat_result == True
-    assert res[0][1].sat_result == False
+    assert res[0][1].sat_result == True
+    assert res[0][2].sat_result == False
 
 
 def load_cell_lib_module(args) -> types.ModuleType:

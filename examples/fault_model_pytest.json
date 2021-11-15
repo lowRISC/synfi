@@ -4,35 +4,36 @@
         "simultaneous_faults": 2,
         "stages" : {
             "stage_1": {
-                "input": "$auto$simplemap.cc:527:simplemap_adff_sdff$14916",
-                "output": "$auto$simplemap.cc:527:simplemap_adff_sdff$14916",
+                "inputs": ["$auto$simplemap.cc:527:simplemap_adff_sdff$14922"],
+                "outputs": ["$auto$simplemap.cc:527:simplemap_adff_sdff$14922"],
                 "type": "input"
             },
             "stage_2": {
-                "input": "$auto$simplemap.cc:527:simplemap_adff_sdff$14916",
-                "output": "rnd_ctr_err_sum(1)",
+                "inputs": ["$auto$simplemap.cc:527:simplemap_adff_sdff$14922"],
+                "outputs": ["rnd_ctr_err_sum(1)"],
                 "type": "output"
             },
             "stage_3": {
-                "input": "$auto$simplemap.cc:527:simplemap_adff_sdff$14916",
-                "output": "key_expand_round_o(4)_75",
+                "inputs": ["$auto$simplemap.cc:527:simplemap_adff_sdff$14922"],
+                "outputs": ["key_expand_round_o(4)_75"],
                 "type": "output"
             }
         },
         "node_fault_mapping": {
-            "NAND3_X1": ["NOR3_X1", "OR3_X1"],
-            "NOR2_X1":  [ "NAND2_X1" ]
+            "OAI21_X1": ["AOI21_X1"],
+            "OAI22_X1": ["AOI22_X1"],
+            "AOI221_X1": ["OAI221_X1"]
         },
         "fault_locations": {
-          "$abc$16613$auto$blifparse.cc:381:parse_blif$16797": "stage_1",
-          "$abc$16613$auto$blifparse.cc:381:parse_blif$16777": "stage_2"
+            "$abc$16637$auto$blifparse.cc:381:parse_blif$16836": "stage_1",
+            "$abc$16637$auto$blifparse.cc:381:parse_blif$16821": "stage_2",
+            "$abc$16637$auto$blifparse.cc:381:parse_blif$16820": "stage_2"
         },
         "output_values": {
-          "key_expand_round_o(4)_75": 0
+          "key_expand_round_o(4)_75": 1
         },
         "input_values": {
-            "$auto$simplemap.cc:527:simplemap_adff_sdff$14916": 1,
-            "$auto$simplemap.cc:559:simplemap_adffe_sdffe_sdffce$14209": 1
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$14922": 0
         },
         "alert_values": 
         {
