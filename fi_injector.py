@@ -653,12 +653,12 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
 def test_main():
     """ Pytest function.
 
-    Test the fault injector using the fault_model_pytest fault model.
+    Test the fault injector using the fault_model.json fault model.
     The first FI experiment should return True, the second False.
 
     """
     res = main([
-        "-p", "circuit.pickle", "-f", "examples/fault_model_pytest.json", "-n",
+        "-p", "circuit.pickle", "-f", "examples/fault_model.json", "-n",
         "1", "-c", "cell_lib_nangate45_autogen.py"
     ])
 
