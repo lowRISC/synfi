@@ -353,11 +353,35 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
         graph = reconnect_node(graph, node_in_name, node_in_name_mod, "out")
         graph = reconnect_node(graph, node_out_name, node_out_name_mod, "in")
     else:
-        # Set type and color of the input and output node.
+        # Set type and color of the input node.
         graph.nodes[node_in_name]["node"].type = in_node_type
         graph.nodes[node_in_name]["node"].node_color = in_color
-        graph.nodes[node_out_name]["node"].type = out_node_type
-        graph.nodes[node_out_name]["node"].node_color = out_color
+        # Set type and color of the output node.
+        if len(graph.in_edges(node_out_name)) != 1:
+            # We have multiple inputs for the output node. Add new output node
+            # and connect.
+            node_out_name_mod = node_out + "_outnew" + rename_string
+            graph.add_node(
+                node_out_name_mod, **{
+                    "node":
+                    Node(name=node_out_name_mod,
+                         parent_name=node_out,
+                         type=out_node_type,
+                         inputs={0: "I1"},
+                         outputs=graph.nodes[node_out_name]["node"].outputs,
+                         stage=stage,
+                         node_color=out_color)
+                })
+            out_pin = list(
+                graph.nodes[node_out_name]["node"].outputs.values())[0]
+            graph.add_edge(node_out_name,
+                           node_out_name_mod,
+                           name="out_wire",
+                           out_pin=out_pin,
+                           in_pin="I1")
+        else:
+            graph.nodes[node_out_name]["node"].type = out_node_type
+            graph.nodes[node_out_name]["node"].node_color = out_color
     return graph
 
 
@@ -386,7 +410,7 @@ def add_in_nodes(graph: nx.DiGraph, subgraph: nx.DiGraph, in_nodes: list,
     subgraph_in_nodes = copy.deepcopy(subgraph)
     orig_graph = copy.deepcopy(graph)
     # Loop over all nodes of the target subgraph and add missing inp. nodes.
-    filter_types = {"in_node", "out_node", "input"}
+    filter_types = {"in_node", "out_node", "input", "output"}
     for node, node_attribute in subgraph.nodes(data=True):
         if (len(subgraph.in_edges(node)) != len(node_attribute["node"].inputs)
             ) and (node_attribute["node"].type
@@ -501,6 +525,7 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict,
             node_out = fi_model["stages"][stage_name]["outputs"][cnt]
             stage_graph = set_in_out_nodes(stage_graph, node_in, node_out,
                                            rename_string, fi_model, stage)
+
         # Add missing input nodes for the gates.
         stage_graph = add_in_nodes(graph, stage_graph,
                                    fi_model["stages"][stage_name]["inputs"],
@@ -658,8 +683,8 @@ def test_main():
 
     """
     res = main([
-        "-p", "circuit.pickle", "-f", "examples/fault_model.json", "-n",
-        "1", "-c", "cell_lib_nangate45_autogen.py"
+        "-p", "circuit.pickle", "-f", "examples/fault_model.json", "-n", "1",
+        "-c", "cell_lib_nangate45_autogen.py"
     ])
 
     assert res[0][0].sat_result == True

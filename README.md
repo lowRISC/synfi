@@ -20,7 +20,7 @@ Install python3 and the corresponding packages:
 $ pip3 install -r requirements.txt
 ```
 
-The `examples` directory contains the netlist for the 
+The `examples/circuit.json` file contains the netlist for the 
 [aes_cipher_control](https://github.com/lowRISC/opentitan/blob/master/hw/ip/aes/rtl/aes_cipher_control.sv) 
 module synthesized with the 
 [provided](https://github.com/lowRISC/opentitan/tree/master/hw/ip/aes/pre_syn) 
