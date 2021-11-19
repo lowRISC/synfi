@@ -295,14 +295,16 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
     # If the node is in the input/output stage and in the input/output list,
     # set type to input/output.
     stage_type = fi_model["stages"][stage]["type"]
-    if (node_in in input_nodes) and (stage_type == "input"):
+    in_types = {"input", "inout"}
+    out_types = {"output", "inout"}
+    if (node_in in input_nodes) and (stage_type in in_types):
         in_node_type = "input"
         in_color = "pink"
     else:
         in_node_type = "in_node"
         in_color = "brown"
 
-    if node_out in output_nodes and (stage_type == "output"):
+    if node_out in output_nodes and (stage_type in out_types):
         out_node_type = "output"
         out_color = "grey"
     else:
@@ -382,6 +384,11 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
         else:
             graph.nodes[node_out_name]["node"].type = out_node_type
             graph.nodes[node_out_name]["node"].node_color = out_color
+            # Make sure that the input pin of the output port is "I1".
+            if out_node_type == "output":
+                for edge in graph.in_edges(node_out_name):
+                    graph[edge[0]][edge[1]]["in_pin"] = "I1"
+    
     return graph
 
 
