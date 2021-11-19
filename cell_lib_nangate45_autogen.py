@@ -266,6 +266,8 @@ gate_in_type_out = {
     'input_formula': 'I1',
     'in_node': 'I1',
     'output': 'I1',
+    'AND19': 'A19',
+    'AND15': 'A15',
     'AND10': 'A10',
     'AND9': 'A9',
     'AND8': 'A8',
@@ -327,7 +329,15 @@ in_type_pins = {
     'A8': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'node_name'},
     'A9': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'node_name'},
     'A10':
-    {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'node_name'}
+    {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'node_name'},
+    'A15': {
+        'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11',
+        'A12', 'A13', 'A14', 'A15', 'node_name'
+    },
+    'A19': {
+        'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11',
+        'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'node_name'
+    }
 }
 
 gate_out_type = {
@@ -2317,7 +2327,43 @@ def and_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
             (p["A9"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
                                                   '_' +
                                                   inputs['node_name'].out_pin)
+    elif len(inputs) == 16:
+        p = validate_inputs(inputs, graph, 'AND15')
+        return (
+            (~p["A1"] | ~p["A10"] | ~p["A11"] | ~p["A12"] | ~p["A13"] |
+             ~p["A14"] | ~p["A15"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"]
+             | ~p["A6"] | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
+            (p["A1"] | ~p["node_name"]) & (p["A10"] | ~p["node_name"]) &
+            (p["A11"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
+            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
+            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
+            (p["A7"] | ~p["node_name"]) & (p["A8"] | ~p["node_name"]) &
+            (p["A9"] | ~p["node_name"]) & (p["A12"] | ~p["node_name"]) &
+            (p["A13"] | ~p["node_name"]) & (p["A14"] | ~p["node_name"]) &
+            (p["A15"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
+                                                   '_' +
+                                                   inputs['node_name'].out_pin)
+    elif len(inputs) == 20:
+        p = validate_inputs(inputs, graph, 'AND19')
+        return (
+            (~p["A1"] | ~p["A10"] | ~p["A11"] | ~p["A12"] | ~p["A13"]
+             | ~p["A14"] | ~p["A15"] | ~p["A16"] | ~p["A17"] | ~p["A18"]
+             | ~p["A19"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
+             | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
+            (p["A1"] | ~p["node_name"]) & (p["A10"] | ~p["node_name"]) &
+            (p["A11"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
+            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
+            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
+            (p["A7"] | ~p["node_name"]) & (p["A8"] | ~p["node_name"]) &
+            (p["A9"] | ~p["node_name"]) & (p["A12"] | ~p["node_name"]) &
+            (p["A13"] | ~p["node_name"]) & (p["A14"] | ~p["node_name"]) &
+            (p["A16"] | ~p["node_name"]) & (p["A17"] | ~p["node_name"]) &
+            (p["A18"] | ~p["node_name"]) & (p["A19"] | ~p["node_name"]) &
+            (p["A15"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
+                                                   '_' +
+                                                   inputs['node_name'].out_pin)
     else:
+        print(len(inputs))
         raise Exception('Missing and gate for output logic.')
 
 
@@ -2335,7 +2381,7 @@ def or_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
     """
     if len(inputs) == 2:
         p = validate_inputs(inputs, graph, 'OR1')
-        return ((~p["A1"]  | p["node_name"]) & (p["A1"] | ~p["node_name"]))
+        return ((~p["A1"] | p["node_name"]) & (p["A1"] | ~p["node_name"]))
     elif len(inputs) == 3:
         p = validate_inputs(inputs, graph, 'OR2')
         return ((~p["A1"] | p["node_name"]) &
@@ -2506,6 +2552,7 @@ def output(inputs: dict, graph: nx.DiGraph) -> Symbol:
     """
     p = validate_inputs(inputs, graph, 'output')
     return (~p['I1'] | p['node_name']) & (p['I1'] | ~p['node_name'])
+
 
 cell_mapping = {
     'AND2_X1_ZN': AND2_X1_ZN,

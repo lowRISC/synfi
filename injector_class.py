@@ -194,14 +194,17 @@ class FiInjector:
                 if "_faulty" in node:
                     if alert:
                         # For the alert signals, use XNORs.
-                        node_name = node + "_xnor"
+                        node_name = node + "_xnor_alert"
                         node_type = "xnor"
                     else:
                         # For outputs use XORs.
                         node_name = node + "_xor"
                         node_type = "xor"
                 else:
-                    node_name = node + "_xnor"
+                    if alert:
+                        node_name = node + "_xnor_alert"
+                    else:
+                        node_name = node + "_xnor"
                     node_type = "xnor"
                 diff_graph_out_logic.add_node(
                     node_name, **{
@@ -256,13 +259,15 @@ class FiInjector:
                      node_color="purple")
             })
         cntr = 1
+
         for out_node in out_nodes:
+
             diff_graph_out_logic.add_edge(out_node,
                                           out_name,
                                           name=out_logic + "_wire",
                                           out_pin="O",
                                           in_pin="A" + str(cntr))
-            cntr = cntr + 1
+            cntr += 1
 
         return out_name
 
@@ -304,7 +309,6 @@ class FiInjector:
         # OR all faulty XORs.
         or_output = self._connect_outputs(diff_graph_out_logic,
                                           out_nodes_faulty_added, "or")
-
         # AND all output nodes (non-faulty and alert).
         and_output = self._connect_outputs(diff_graph_out_logic,
                                            out_nodes_added, "and")
