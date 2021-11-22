@@ -1,0 +1,77 @@
+{
+    "fimodels": {
+      "rnd_ctr": {
+        "simultaneous_faults": 1,
+        "stages" : {
+            "stage_1": {
+                "inputs": [ "$auto$simplemap.cc:527:simplemap_adff_sdff$70230",
+                            "$auto$simplemap.cc:527:simplemap_adff_sdff$70231",
+                            "$auto$simplemap.cc:527:simplemap_adff_sdff$70232",
+                            "$auto$simplemap.cc:527:simplemap_adff_sdff$70233",
+                            "$auto$simplemap.cc:527:simplemap_adff_sdff$70234",
+                            "$auto$simplemap.cc:527:simplemap_adff_sdff$70235"],
+                "outputs": [ "$auto$simplemap.cc:527:simplemap_adff_sdff$68737",
+                             "$auto$simplemap.cc:527:simplemap_adff_sdff$68738",
+                             "$auto$simplemap.cc:527:simplemap_adff_sdff$68739",
+                             "$auto$simplemap.cc:527:simplemap_adff_sdff$68740",
+                             "$auto$simplemap.cc:527:simplemap_adff_sdff$68741",
+                             "$auto$simplemap.cc:527:simplemap_adff_sdff$68742"], 
+                "type": "inout"
+            }
+        },
+        "node_fault_mapping": {
+            "NAND2_X1": [ "AND2_X1"],
+            "NAND3_X1": ["AND3_X1"],
+            "AND3_X1": ["NAND3_X1"],
+            "OR3_X1": ["NAND3_X1"],
+            "NOR3_X1": ["OR3_X1"],
+            "NOR2_X1":  [ "NAND2_X1"],
+            "AND2_X1": [ "NAND2_X1"],
+            "XOR2_X1": [ "NAND2_X1"],
+            "XNOR2_X1": ["XOR2_X1"],
+            "INV_X1": ["INV_X1"],
+            "AOI21_X1": ["OAI21_X1"],
+            "OAI21_X1": ["AOI21_X1"],
+            "OAI22_X1": ["AOI22_X1"],
+            "AOI22_X1": ["OAI22_X1"],
+            "OAI211_X1": ["AOI211_X1"],
+            "AOI211_X1": ["OAI211_X1"],
+            "NOR4_X1": [ "NAND4_X1"],
+            "OR2_X1": ["AND2_X1"],
+            "OR4_X1": [ "NAND4_X1"],
+            "NAND4_X1": ["AND4_X1"],
+            "AND4_X1": ["NAND4_X1"],
+            "OAI33_X1": ["OAI33_X1"],
+            "OAI221_X1": ["AOI221_X1"],
+            "AOI221_X1": ["OAI221_X1"],
+            "MUX2_X1": ["MUX2_X1"],
+            "AOI222_X1": ["OAI222_X1"],
+            "OAI222_X1": ["AOI222_X1"]
+        },
+        "fault_locations": {
+            "$abc$105438$auto$blifparse.cc:381:parse_blif$105929": "stage_1",
+            "$abc$105438$auto$blifparse.cc:381:parse_blif$105928": "stage_1"
+        },
+        "output_values": {
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$68737": 0,
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$68738": 1,
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$68739": 0,
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$68740": 0,
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$68741": 0,
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$68742": 1
+        },
+        "input_values": {
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$70230": 1,
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$70231": 0,
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$70232": 0,
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$70233": 0,
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$70234": 1,
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$70235": 0
+        },
+        "alert_values": 
+        {
+        
+        }
+      }
+    }
+}

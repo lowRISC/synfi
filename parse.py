@@ -7,6 +7,7 @@ import argparse
 import json
 import logging
 import pickle
+import sys
 import time
 from pathlib import Path
 from typing import DefaultDict, Tuple
@@ -16,6 +17,8 @@ import networkx as nx
 import graph_builder
 import helpers
 from helpers import Node, Port
+
+logger = logging.getLogger()
 
 """Part of the fault injection framework for the OpenTitan.
 
@@ -247,7 +250,11 @@ def open_module(args) -> dict:
     module = None
     with open(args.netlist, "r") as circuit_json_file:
         circuit_json = json.load(circuit_json_file)
+    if args.module in circuit_json["modules"]:
         module = circuit_json["modules"][args.module]
+    else:
+        logger.error(f"Could not find the {args.module} module in the circuit.")
+        sys.exit()
     return module
 
 
@@ -319,7 +326,6 @@ def test_main():
 
 def main(argv=None):
     # Configure the logger.
-    logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     console = logging.StreamHandler()
     logger.addHandler(console)
