@@ -10,13 +10,16 @@ import string
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from random import shuffle
 
+import numpy
+import ray
 from liberty.parser import parse_liberty
 from mako.template import Template
-from sympy import Symbol, false, sympify, true
-from sympy.logic.boolalg import is_cnf, simplify_logic, to_cnf
+from sympy import Symbol
 
 import helpers
+from formula_converter_class import FormulaConverter
 
 """Part of the fault injection framework for the OpenTitan.
 
@@ -26,7 +29,7 @@ flow/platforms/nangate45/lib/NangateOpenCellLibrary_typical.lib) to the format
 needed by the FI Injector.
 
 Typical usage:
->>> ./cell_lib_generator.py -l NangateOpenCellLibrary_typical.lib 
+>>> ./cell_lib_generator.py -l NangateOpenCellLibrary_typical.lib -n 16
                             -c examples/config.json 
                             -o cell_lib_nangate45_autogen.py
 """
@@ -121,6 +124,18 @@ def parse_arguments(argv):
                         type=helpers.ap_check_file_exists,
                         required=True,
                         help="Path of the cell library config file")
+    parser.add_argument("-j",
+                        "--json",
+                        dest="netlist",
+                        type=helpers.ap_check_file_exists,
+                        required=False,
+                        help="Only parse cells which are also in the netlist")
+    parser.add_argument("-n",
+                        "--num_cores",
+                        dest="num_cores",
+                        type=int,
+                        required=True,
+                        help="Number of cores to use")
     parser.add_argument("-o",
                         "--output",
                         dest="out_lib",
@@ -133,7 +148,7 @@ def parse_arguments(argv):
     args = parser.parse_args(argv)
 
     if args.version:
-        helpers.show_and_exit(__file__, ["sympy"])
+        helpers.show_and_exit(__file__, ["sympy", "ray", "numpy"])
 
     return args
 
@@ -150,6 +165,30 @@ def open_cfg_file(args) -> dict:
     with open(args.cfg, 'r') as f:
         cfg = json.load(f)
     return cfg
+
+
+def open_netlist(args) -> list:
+    """ Opens the JSON netlist and parses all cell types.
+
+    Args:
+        args: The input arguments.
+
+    Returns:
+        The cell types.
+    """
+    modules = None
+    cell_types = []
+    if args.netlist:
+        with open(args.netlist, "r") as circuit_json_file:
+            circuit_json = json.load(circuit_json_file)
+            modules = circuit_json["modules"]
+        # Iterate over netlist and add all cell types to the list.
+        for module, module_value in modules.items():
+            for cell, cell_value in module_value["cells"].items():
+                cell_types.append(cell_value["type"])
+        # Remove duplicates from the list.
+        cell_types = list(dict.fromkeys(cell_types))
+    return cell_types
 
 
 def open_cell_lib(args) -> dict:
@@ -169,107 +208,12 @@ def open_cell_lib(args) -> dict:
     return cell_lib
 
 
-def simplify_expression(expr: Symbol) -> Symbol:
-    """ Simplify the CNF expression.
-
-    The simplify_logic functionality of sympy is used to simplify the given
-    expression. As the output needs to be in CNF, a check is conducted.
-
-    Args:
-        expr: The boolean expression to simplify.
-
-    Returns:
-        The simplified boolean expression in CNF.
-    """
-    simplified = simplify_logic(expr, 'cnf', True)
-    if is_cnf(simplified):
-        return simplified
-    else:
-        return expr
-
-
-def convert_cnf(expr: Symbol, out_symbol: Symbol, gate: str) -> Symbol:
-    """ Convert the given boolean expression to CNF.
-
-    The logical biconditional of the boolean expression of the gate is converted
-    to CNF using the sympy library.
-
-    Args:
-        expr: The boolean expression to convert.
-        out_symbol: The output variable of the boolean expression.
-        gate: The name of the current gate.
-
-    Returns:
-        The boolean expression in CNF.
-    """
-    cnf = to_cnf((out_symbol & expr) | (~out_symbol & ~expr))
-    if not is_cnf(cnf):
-        raise Exception(f"Failed to convert {gate} to CNF.")
-    return cnf
-
-
-def replace_pin(inputs: list, outputs: list, target_char: str,
-                replace_char: str) -> str:
-    """ Replace a pin name.
-
-    Sympy uses some predefined symbols (I, S), which need to be replaced in the
-    input and output pins.
-
-    Args:
-        inputs: The inputs of the cell.
-        outputs: The outputs of the cell.
-        target_char: The char to replace.
-        replace_char: The rename char.
-
-    Returns:
-        The formula, input, and output with the replaced pin name.
-    """
-    inputs = [in_pin.replace(target_char, replace_char) for in_pin in inputs]
-    for out_pin in outputs:
-        out_pin.name.replace(target_char, replace_char)
-
-    return inputs, outputs
-
-
-def convert_string(formula: str, output: str, gate: str) -> Symbol:
-    """ Convert the formula string to a sympy Symbol.
-
-    Args:
-        formula: The boolean formula.
-        output: The output in name of the boolean expression.
-        gate: The current gate.
-
-    Returns:
-        The boolean expression in CNF.
-    """
-    # As sympy requires ~ as a NOT, replace !.
-    formula = formula.replace("!", "~")
-    # "S" is predefined by sympy, replace with K.
-    formula = formula.replace("S", "K")
-    # "I" is predefined by sympy, replace with L.
-    formula = formula.replace("I", "L")
-    # Set 1/0 formula to true/false
-    if formula == "1": formula = true
-    if formula == "0": formula = false
-    try:
-        # Convert the string to sympy using sympify. The convert_xor=False
-        # converts a ^ to a XOR.
-        formula = sympify(formula, convert_xor=False)
-        # Use the logical biconditional to induce the output.
-        formula = convert_cnf(formula, Symbol(output), gate)
-        # Simplify CNF formula.
-        formula = simplify_expression(formula)
-    except:
-        raise Exception(f"Failed to convert formula for {gate}.")
-
-    return formula
-
-
-def parse_cells(cell_lib) -> list:
+def parse_cells(cell_lib: dict, cell_types: list) -> list:
     """ Parse the cells in the cell library.
 
     Args:
         cell_lib: The opened cell library.
+        cell_bl: The cell black list.
 
     Returns:
         The cells list.
@@ -277,46 +221,27 @@ def parse_cells(cell_lib) -> list:
     cells = []
     for cell_group in cell_lib.get_groups("cell"):
         name = cell_group.args[0]
-        inputs = []
-        outputs = []
-        for pin_group in cell_group.get_groups("pin"):
-            pin_name = pin_group.args[0]
-            if pin_group["direction"] == "input":
-                inputs.append(pin_name)
-            else:
-                if pin_group["function"]:
-                    function = pin_group["function"].value
-                    out_pin = Output(name=pin_name,
-                                     formula=function,
-                                     formula_cnf="")
-                    outputs.append(out_pin)
+        if (not cell_types) or (name in cell_types):
+            inputs = []
+            outputs = []
+            for pin_group in cell_group.get_groups("pin"):
+                pin_name = pin_group.args[0]
+                if pin_group["direction"] == "input":
+                    inputs.append(pin_name)
+                else:
+                    if pin_group["function"]:
+                        function = pin_group["function"].value
+                        out_pin = Output(name=pin_name,
+                                         formula=function,
+                                         formula_cnf="")
+                        outputs.append(out_pin)
 
-        # Ignore cells without outputs or inputs, e.g., filler cells.
-        if inputs and outputs:
-            cell = Cell(name=name, inputs=inputs, outputs=outputs)
-            cells.append(cell)
+            # Ignore cells without outputs or inputs, e.g., filler cells.
+            if inputs and outputs:
+                cell = Cell(name=str(name), inputs=inputs, outputs=outputs)
+                cells.append(cell)
 
     return cells
-
-
-def convert_formula(cells: list):
-    """ Converts the boolean function from a string to a clause.
-
-    Args:
-        cells: The cells list.
-
-    """
-    for cell in cells:
-        # "S" is predefined by sympy, replace with K.
-        cell.inputs, cell.outputs = replace_pin(cell.inputs, cell.outputs, "S",
-                                                "K")
-        # "I" is predefined by sympy, replace with L.
-        cell.inputs, cell.outputs = replace_pin(cell.inputs, cell.outputs, "I",
-                                                "L")
-        for output in cell.outputs:
-            if output.formula:
-                output.formula_cnf = convert_string(output.formula,
-                                                    output.name, cell.name)
 
 
 def build_cell_functions(cells: list) -> list:
@@ -492,9 +417,38 @@ def write_cell_lib(cell_lib_template: Template, cell_lib_py: str,
     out_file.write_text(cell_lib_template.render(cell_lib=cell_lib_py))
 
 
+def handle_cells(cells: dict, num_cores: int) -> list:
+    """ Convert the cell formulas to sympy formulas using ray.
+
+    Args:
+        cells: The cells of the library.
+        num_cores: The number of ray processes.
+    Returns:
+        The list of cells with the sympy formulas.
+    """
+    # Shuffle the list as some cell types take longer.
+    shuffle(cells)
+    # Split cells into num_core shares.
+    cell_shares = numpy.array_split(numpy.array(cells), num_cores)
+    # Use ray to distribute fault injection to num_cores processes.
+    workers = [
+        FormulaConverter.remote(cell_share) for cell_share in cell_shares
+    ]
+
+    # Perform the attack and collect the results.
+    tasks = [worker.convert_formulas.remote() for worker in workers]
+    results = ray.get(tasks)
+    cell_formulas = [item for sublist in results for item in sublist]
+
+    return cell_formulas
+
+
 def main(argv=None):
     tstp_begin = time.time()
     args = parse_arguments(argv)
+
+    num_cores = args.num_cores
+    ray.init(num_cpus=num_cores)
 
     template_file = (Path("template/cell_lib.py.tpl"))
     cell_lib_template = Template(template_file.read_text(),
@@ -502,9 +456,12 @@ def main(argv=None):
     # Open the cell library and config.
     cell_lib = open_cell_lib(args)
     cell_cfg = open_cfg_file(args)
+    # If provided, open the netlist. Only cells used in the netlist are parsed.
+    cell_types = open_netlist(args)
     # Parse the cells of the lib and convert the formulas.
-    cells = parse_cells(cell_lib)
-    convert_formula(cells)
+    cells = parse_cells(cell_lib, cell_types)
+    # Distribute formula conversion to ray.
+    cells = handle_cells(cells, num_cores)
     # Assemble the output file and write.
     cell_lib_py = build_cell_lib(cells, cell_cfg)
     write_cell_lib(cell_lib_template, cell_lib_py, args.out_lib)

@@ -30,7 +30,7 @@ The convert a cell library (e.g., the
 [NANGATE45](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/tree/master/flow/platforms/nangate45/lib) library), 
 adapt the `examples/config.json` file and start the cell library generator:
 ```console
-$ ./cell_lib_generator.py -l NangateOpenCellLibrary_typical.lib \
+$ ./cell_lib_generator.py -l NangateOpenCellLibrary_typical.lib -n 16 \
     -c examples/config.json -o cell_lib_nangate45_autogen.py
 ```
 To start the preprocessing phase for this  example netlist, create 

@@ -79,7 +79,7 @@ a target gate is replaced during the FI process.
 
 Then, convert the used cell library using the cell library generator script:
 ```console
-$ ./cell_lib_generator.py -l NangateOpenCellLibrary_typical.lib \
+$ ./cell_lib_generator.py -l NangateOpenCellLibrary_typical.lib -n 16 \
                           -c examples/config.json \
                           -o cell_lib_nangate45_autogen.py
 ```
