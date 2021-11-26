@@ -51,7 +51,7 @@ gate_in_type_out = {
   'xor': 'I2',
   'input_formula': 'I1',
   'in_node': 'I1',
-  'output': 'I1'
+  'output': 'I1',
   'AND19': 'A19',
   'AND15': 'A15',
   'AND10': 'A10',
@@ -109,102 +109,9 @@ out_type_pins = {
 % endfor
 }
 
-################################################################################
-#                   Adaption needed for a new cell library                     #
-################################################################################
+
 # The mapping from one input pin type to another used by the injector.
-pin_in_mapping = {
-    'A2B2': {
-        'A1B1C2': {
-            'A1': 'A',
-            'A2': 'B',
-            'B1': 'C1',
-            'B2': 'C2'
-        },
-        'A4': {
-            'A1': 'A1',
-            'A2': 'A2',
-            'B1': 'A3',
-            'B2': 'A4'
-        }
-    },
-    'A1B1C2': {
-        'A2B2': {
-            'A': 'A1',
-            'B': 'A2',
-            'C1': 'B1',
-            'C2': 'B2'
-        },
-        'A4': {
-            'A': 'A1',
-            'B': 'A2',
-            'C1': 'A3',
-            'C2': 'A4'
-        }
-    },
-    'A4': {
-        'A2B2': {
-            'A1': 'A1',
-            'A2': 'A2',
-            'A3': 'B1',
-            'A4': 'B2'
-        },
-        'A1B1C2': {
-            'A1': 'A',
-            'A2': 'B',
-            'A3': 'C1',
-            'A4': 'C2'
-        }
-    },
-    'A3': {
-        'A1B2': {
-            'A1': 'A',
-            'A2': 'B1',
-            'A3': 'B2'
-        },
-        'A1B1S1': {
-            'A1': 'A',
-            'A2': 'B',
-            'A3': 'S'
-        }
-    },
-    'A1B2': {
-        'A3': {
-            'A': 'A1',
-            'B1': 'A2',
-            'B2': 'A3'
-        },
-        'A1B1S1': {
-            'A': 'A',
-            'B1': 'B',
-            'B2': 'S'
-        }
-    },
-    'A1B1S1': {
-        'A3': {
-            'A': 'A1',
-            'B': 'A2',
-            'S': 'A3'
-        },
-        'A1B2': {
-            'A': 'A',
-            'B': 'B1',
-            'S': 'B2'
-        }
-    },
-    'A2': {
-        'A1B1': {
-            'A1': 'A',
-            'A2': 'B'
-        }
-    },
-    'A1B1': {
-        'A2': {
-            'A': 'A1',
-            'B': 'A2'
-        }
-    }
-}
+pin_in_mapping = ${cell_lib.pin_in_mapping}
 
 # The mapping from one input pin type to another used by the injector.
 pin_out_mapping = {
@@ -219,10 +126,6 @@ pin_out_mapping = {
         }
     }
 }
-
-################################################################################
-#                                DO NOT EDIT                                   #
-################################################################################
 
 def rename_inputs(inputs: dict, type: str) -> dict:
     """ Rename the inputs for the current gate.

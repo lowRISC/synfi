@@ -73,6 +73,7 @@ class CellLib:
     clk: str
     rst: str
     reg: str
+    pin_in_mapping: dict
     type_mapping: TypeMapping
     cell_formulas: list
     cell_mapping: list
@@ -208,12 +209,13 @@ def open_cell_lib(args) -> dict:
     return cell_lib
 
 
-def parse_cells(cell_lib: dict, cell_types: list) -> list:
+def parse_cells(cell_lib: dict, cell_types: list, cell_cfg: dict) -> list:
     """ Parse the cells in the cell library.
 
     Args:
         cell_lib: The opened cell library.
-        cell_bl: The cell black list.
+        cell_types: The cell black list.
+        cell_cfg: The cell configuration dict provided by the user.
 
     Returns:
         The cells list.
@@ -222,24 +224,29 @@ def parse_cells(cell_lib: dict, cell_types: list) -> list:
     for cell_group in cell_lib.get_groups("cell"):
         name = cell_group.args[0]
         if (not cell_types) or (name in cell_types):
-            inputs = []
-            outputs = []
-            for pin_group in cell_group.get_groups("pin"):
-                pin_name = pin_group.args[0]
-                if pin_group["direction"] == "input":
-                    inputs.append(pin_name)
-                else:
-                    if pin_group["function"]:
-                        function = pin_group["function"].value
-                        out_pin = Output(name=pin_name,
-                                         formula=function,
-                                         formula_cnf="")
-                        outputs.append(out_pin)
+            if not ([
+                    True for exclude_cell in cell_cfg["exclude_cells"]
+                    if exclude_cell in str(name)
+            ]):
+                inputs = []
+                outputs = []
+                for pin_group in cell_group.get_groups("pin"):
+                    pin_name = pin_group.args[0]
+                    if pin_group["direction"] == "input":
+                        inputs.append(pin_name)
+                    else:
+                        if pin_group["function"]:
+                            function = pin_group["function"].value
+                            out_pin = Output(name=pin_name,
+                                             formula=function,
+                                             formula_cnf="")
+                            outputs.append(out_pin)
 
-            # Ignore cells without outputs or inputs, e.g., filler cells.
-            if inputs and outputs:
-                cell = Cell(name=str(name), inputs=inputs, outputs=outputs)
-                cells.append(cell)
+                # Ignore cells without outputs or inputs, e.g., filler cells.
+                if inputs and outputs:
+                    name = str(name).replace('"', '')
+                    cell = Cell(name=name, inputs=inputs, outputs=outputs)
+                    cells.append(cell)
 
     return cells
 
@@ -398,6 +405,7 @@ def build_cell_lib(cells: list, cell_cfg: dict) -> CellLib:
     cell_lib = CellLib(clk=cell_cfg["clk"],
                        rst=cell_cfg["rst"],
                        reg=cell_cfg["reg"],
+                       pin_in_mapping=cell_cfg["pin_in_mapping"],
                        type_mapping=type_mapping,
                        cell_formulas=cell_formulas,
                        cell_mapping=cell_mapping)
@@ -459,7 +467,7 @@ def main(argv=None):
     # If provided, open the netlist. Only cells used in the netlist are parsed.
     cell_types = open_netlist(args)
     # Parse the cells of the lib and convert the formulas.
-    cells = parse_cells(cell_lib, cell_types)
+    cells = parse_cells(cell_lib, cell_types, cell_cfg)
     # Distribute formula conversion to ray.
     cells = handle_cells(cells, num_cores)
     # Assemble the output file and write.
