@@ -43,15 +43,16 @@ def add_edges(nodes: dict, connections: list, wires: dict,
         # to the edge attribute. Happens when a node_1 has multiple outputs
         # (e.g. Q, QN) which are connected to multiple inputs of node_2.
         if graph.has_edge(connection[0], connection[1]):
-            out_pin_new = []
-            out_pin_new.append(out_pin)
-            out_pin_new.append(graph[connection[0]][connection[1]]["out_pin"])
-            graph[connection[0]][connection[1]]["out_pin"] = out_pin_new
-
-            in_pin_new = []
-            in_pin_new.append(in_pin)
-            in_pin_new.append(graph[connection[0]][connection[1]]["in_pin"])
-            graph[connection[0]][connection[1]]["in_pin"] = in_pin_new
+            if out_pin != graph[connection[0]][connection[1]]["out_pin"]:
+                out_pin_new = []
+                out_pin_new.append(out_pin)
+                out_pin_new.append(graph[connection[0]][connection[1]]["out_pin"])
+                graph[connection[0]][connection[1]]["out_pin"] = out_pin_new
+            if in_pin != graph[connection[0]][connection[1]]["in_pin"]:
+                in_pin_new = []
+                in_pin_new.append(in_pin)
+                in_pin_new.append(graph[connection[0]][connection[1]]["in_pin"])
+                graph[connection[0]][connection[1]]["in_pin"] = in_pin_new
         else:
             graph.add_edge(connection[0],
                            connection[1],

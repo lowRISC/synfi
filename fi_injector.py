@@ -370,7 +370,7 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
                     Node(name=node_out_name_mod,
                          parent_name=node_out,
                          type=out_node_type,
-                         inputs={0: "I1"},
+                         inputs={0: ["I1"]},
                          outputs=graph.nodes[node_out_name]["node"].outputs,
                          stage=stage,
                          node_color=out_color)
@@ -381,15 +381,15 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
                            node_out_name_mod,
                            name="out_wire",
                            out_pin=out_pin,
-                           in_pin="I1")
+                           in_pin=["I1"])
         else:
             graph.nodes[node_out_name]["node"].type = out_node_type
             graph.nodes[node_out_name]["node"].node_color = out_color
             # Make sure that the input pin of the output port is "I1".
             if out_node_type == "output":
                 for edge in graph.in_edges(node_out_name):
-                    graph[edge[0]][edge[1]]["in_pin"] = "I1"
-
+                    graph[edge[0]][edge[1]]["in_pin"] = ["I1"]
+    
     return graph
 
 
@@ -492,7 +492,7 @@ def connect_graphs(graph: nx.DiGraph, subgraph: nx.DiGraph) -> nx.DiGraph:
                                                 node_in,
                                                 name=node_out + "_" + node_in,
                                                 out_pin="Q",
-                                                in_pin="I1")
+                                                in_pin=["I1"])
     return subgraph_connected
 
 
