@@ -17057,6 +17057,7 @@
           "attributes": {
             "otfi_expected": "00000000000000000000000000000001",
             "otfi_type": "output_port",
+            "otfi_stage": "2",
             "src": "syn_out/aes_cipher_control_2021_11_16_17_26_35/generated/aes_cipher_control.v:93.71-93.89"
           }
         },
@@ -17165,6 +17166,7 @@
             "keep": "00000000000000000000000000000001",
             "otfi_input": "00000000000000000000000000000000",
             "otfi_type": "register_d",
+            "otfi_stage": "1",
             "src": "syn_out/aes_cipher_control_2021_11_16_17_26_35/generated/aes_cipher_control.v:101.65-101.74"
           }
         },
@@ -17174,7 +17176,8 @@
           "attributes": {
             "keep": "00000000000000000000000000000001",
             "otfi_expected": "00000000000000000000000000000000",
-            "otfi_type": "alert_port",
+            "otfi_type": "alert_signal",
+            "otfi_stage": "3",
             "src": "syn_out/aes_cipher_control_2021_11_16_17_26_35/generated/aes_cipher_control.v:112.63-112.74",
             "unused_bits": "0 "
           }
@@ -17186,6 +17189,7 @@
             "keep": "00000000000000000000000000000001",
             "otfi_input": "00000000000000000000000000000000",
             "otfi_type": "register_q",
+            "otfi_stage": "1",
             "src": "syn_out/aes_cipher_control_2021_11_16_17_26_35/generated/aes_cipher_control.v:102.66-102.75"
           }
         },
@@ -17196,6 +17200,7 @@
             "keep": "00000000000000000000000000000001",
             "otfi_input": "00000000000000000000000000001100",
             "otfi_type": "register_d",
+            "otfi_stage": "1",
             "src": "syn_out/aes_cipher_control_2021_11_16_17_26_35/generated/aes_cipher_control.v:103.66-103.79"
           }
         },
@@ -17206,6 +17211,7 @@
             "keep": "00000000000000000000000000000001",
             "otfi_input": "00000000000000000000000000001100",
             "otfi_type": "register_q",
+            "otfi_stage": "1",
             "src": "syn_out/aes_cipher_control_2021_11_16_17_26_35/generated/aes_cipher_control.v:104.67-104.80"
           }
         },
