@@ -6,7 +6,10 @@
 import argparse
 import json
 import logging
+import sys
 import time
+from dataclasses import dataclass
+from itertools import cycle
 from pathlib import Path
 from typing import DefaultDict
 
@@ -19,8 +22,20 @@ the augmented source code.
 
 Typical usage:
 >>> ./fi_model_generator.py -j examples/circuit.json -m aes_cipher_control 
-    -s 2 -n rnd_ctr -o examples/fault_model.json
+    -s 2 -n rnd_ctr -c examples/fault_mapping_cfg.json 
+    -o examples/fault_model.json
 """
+
+logger = logging.getLogger()
+
+
+@dataclass
+class StageEntry:
+    """ An entry of a OTFI stage.
+
+    """
+    cell: str
+    value: int
 
 
 def parse_arguments(argv):
@@ -42,6 +57,12 @@ def parse_arguments(argv):
                         type=helpers.ap_check_dir_exists,
                         required=True,
                         help="The output fault model file")
+    parser.add_argument("-c",
+                        "--cfg",
+                        dest="cfg",
+                        type=helpers.ap_check_file_exists,
+                        required=True,
+                        help="Path of the fault mapping config file")
     parser.add_argument("-m",
                         "--module",
                         dest="module",
@@ -84,11 +105,26 @@ def open_module(args):
     return module
 
 
+def open_fault_mapping(args):
+    """ Opens the user-specified fault mapping.
+
+    Args:
+        args: The input arguments.
+
+    Returns:
+        The configured fault mapping.
+    """
+    fault_mapping = None
+    with open(args.cfg, "r") as fault_mapping_json_file:
+        fault_mapping = json.load(fault_mapping_json_file)
+    return fault_mapping["node_fault_mapping"]
+
+
 def parse_otfi_attr(module: dict) -> dict:
     """ Parses the OTFI annotation values found in the module.
 
     Args:
-        args: The input arguments.
+        module: The loaded Verilog module.
 
     Returns:
         The OTFI attributes.
@@ -103,49 +139,73 @@ def parse_otfi_attr(module: dict) -> dict:
                 values[netname]["otfi_expected"] = attr["otfi_expected"]
             if "otfi_expected" in attr:
                 values[netname]["otfi_expected"] = attr["otfi_expected"]
-            elif "otfi_input" in attr:
+            if "otfi_input" in attr:
                 values[netname]["otfi_input"] = attr["otfi_input"]
-            elif "bits" in entry:
+            if "otfi_stage" in attr:
+                values[netname]["otfi_stage"] = attr["otfi_stage"]
+            if "bits" in entry:
                 values[netname]["bits"] = entry["bits"]
-
+                values[netname]["bits_len"] = str(len(entry["bits"]))
     return values
 
 
-def parse_otfi_expected_values(attributes: dict, registers: dict) -> dict:
+def parse_otfi_expected_values(attributes: dict, registers: dict,
+                               module: dict) -> dict:
     """ Parses the OTFI expected values found in the module.
 
     Args:
         attributes: The parsed OTFI attributes.
         registers: The register cellnames with the connected wire.
+        module: The loaded Verilog module.
 
     Returns:
         The OTFI expected and alert values.
     """
-    out_values = DefaultDict(dict)
-    alert_values = DefaultDict(dict)
+
+    out_values = DefaultDict(lambda: DefaultDict(list))
+    alert_values = DefaultDict(lambda: DefaultDict(list))
     for netname, entry in attributes.items():
         if "otfi_expected" in entry:
             if entry["otfi_type"] == "output_port":
-                bit_length = str(len(entry["bits"]))
                 for idx, bit in enumerate(entry["bits"]):
-                    name = netname + "(" + bit_length + ")_" + str(bit)
-                    out_values[name] = int(entry["otfi_expected"][-(idx + 1)])
+                    name = netname + "(" + entry["bits_len"] + ")_" + str(bit)
+                    stage = StageEntry(cell=name,
+                                       value=int(
+                                           entry["otfi_expected"][-(idx + 1)]))
+                    out_values[entry["otfi_stage"]]["stage"].append(stage)
+                    out_values[
+                        entry["otfi_stage"]]["type"] = entry["otfi_type"]
             elif entry["otfi_type"] == "alert_port":
-                bit_length = str(len(entry["bits"]))
                 for idx, bit in enumerate(entry["bits"]):
-                    name = netname + "(" + bit_length + ")_" + str(bit)
-                    alert_values[name] = int(
-                        entry["otfi_expected"][-(idx + 1)])
+                    name = netname + "(" + entry["bits_len"] + ")_" + str(bit)
+                    stage = StageEntry(cell=name,
+                                       value=int(
+                                           entry["otfi_expected"][-(idx + 1)]))
+                    alert_values[entry["otfi_stage"]]["stage"].append(stage)
+                    alert_values[
+                        entry["otfi_stage"]]["type"] = entry["otfi_type"]
+            elif entry["otfi_type"] == "alert_signal":
+                for idx, bit in enumerate(entry["bits"]):
+                    name = get_connected_cell(str(bit), module)
+                    stage = StageEntry(cell=name,
+                                       value=int(
+                                           entry["otfi_expected"][-(idx + 1)]))
+                    alert_values[entry["otfi_stage"]]["stage"].append(stage)
+                    alert_values[
+                        entry["otfi_stage"]]["type"] = entry["otfi_type"]
             elif entry["otfi_type"] == "register_q":
                 for idx, cellname in enumerate(registers[netname]):
-                    out_values[cellname] = int(
-                        entry["otfi_expected"][-(idx + 1)])
-
+                    stage = StageEntry(cell=cellname,
+                                       value=int(
+                                           entry["otfi_expected"][-(idx + 1)]))
+                    alert_values[entry["otfi_stage"]]["stage"].append(stage)
+                    alert_values[
+                        entry["otfi_stage"]]["type"] = entry["otfi_type"]
     return (out_values, alert_values)
 
 
 def parse_otfi_in_values(attributes: dict, registers: dict) -> dict:
-    """ Parses the OTFI input values found in the module.
+    """ Parses the OTFI input values found in the Verilog module.
 
     Args:
         attributes: The parsed OTFI attributes.
@@ -154,18 +214,25 @@ def parse_otfi_in_values(attributes: dict, registers: dict) -> dict:
     Returns:
         The OTFI input values.
     """
-    in_values = DefaultDict(dict)
+    in_values = DefaultDict(lambda: DefaultDict(list))
     for netname, entry in attributes.items():
         if "otfi_input" in entry:
             if entry["otfi_type"] == "input_port":
-                bit_length = str(len(entry["bits"]))
                 for idx, bit in enumerate(entry["bits"]):
-                    name = netname + "(" + bit_length + ")_" + str(bit)
-                    in_values[name] = int(entry["otfi_input"][-(idx + 1)])
+                    name = netname + "(" + entry["bits_len"] + ")_" + str(bit)
+                    stage = StageEntry(cell=name,
+                                       value=int(
+                                           entry["otfi_input"][-(idx + 1)]))
+                    in_values[entry["otfi_stage"]]["stage"].append(stage)
+                    in_values[entry["otfi_stage"]]["type"] = entry["otfi_type"]
             elif entry["otfi_type"] == "register_q":
-                for idx, cellname in enumerate(registers[netname]):
-                    in_values[cellname] = int(entry["otfi_input"][-(idx + 1)])
-
+                for idx, cellname in enumerate(
+                        registers[netname]["registers"]):
+                    stage = StageEntry(cell=cellname,
+                                       value=int(
+                                           entry["otfi_input"][-(idx + 1)]))
+                    in_values[entry["otfi_stage"]]["stage"].append(stage)
+                    in_values[entry["otfi_stage"]]["type"] = entry["otfi_type"]
     return in_values
 
 
@@ -176,7 +243,7 @@ def parse_otfi_registers(attributes: dict, module: dict) -> dict:
 
     Args:
         attributes: The parsed OTFI attributes.
-        module: The selected module of the circuit.
+        module: The selected Verilog module of the circuit.
 
     Returns:
         The OTFI registers.
@@ -185,24 +252,55 @@ def parse_otfi_registers(attributes: dict, module: dict) -> dict:
     nets = module["netnames"]
     cells = module["cells"]
 
-    registers = DefaultDict(list)
-    nets_q = DefaultDict(list)
+    registers = DefaultDict(dict)
+    nets_q = DefaultDict(dict)
     # Get all netnames and bits for a net connected to a Q port of a register.
     for netname, entry in attributes.items():
         if entry["otfi_type"] == "register_q":
+            nets_q[netname]["nets"] = []
             for bit in nets[netname]["bits"]:
-                nets_q[netname].append(bit)
+                nets_q[netname]["nets"].append(bit)
+                nets_q[netname]["stage"] = entry["otfi_stage"]
 
     # Find the register cellname for the corresponding net connected to a
     # Q port of a register.
-    for net_q, bits_q in nets_q.items():
-        for bit_q in bits_q:
+    for net_q, net_entry in nets_q.items():
+        registers[net_q]["registers"] = []
+        for bit_q in net_entry["nets"]:
             for cellname, entry in cells.items():
                 if "Q" in entry["connections"] and entry["connections"]["Q"][
                         0] == bit_q:
-                    registers[net_q].append(cellname)
+                    registers[net_q]["registers"].append(cellname)
+                    registers[net_q]["stage"] = net_entry["stage"]
 
     return registers
+
+
+def get_connected_cell(wire_name: str, module: dict) -> str:
+    """ Determine the selected registers.
+
+    This function finds the cell connected to a wire.
+
+    Args:
+        wire_name: The name of the wire.
+        module: The selected Verilog module of the circuit.
+
+    Returns:
+        The cell connected with a wire.
+    """
+    # The JSON entries.
+
+    cells = module["cells"]
+    cell = ""
+    for cell_name, entry in cells.items():
+        for port, wire in entry["connections"].items():
+            if wire_name in str(
+                    wire[0]) and entry["port_directions"][port] == "output":
+                cell = cell_name
+    if cell == "":
+        logger.error("Alert signal gate not found.")
+        sys.exit()
+    return cell
 
 
 def create_otfi_stages(in_values: dict, exp_values: dict,
@@ -223,40 +321,66 @@ def create_otfi_stages(in_values: dict, exp_values: dict,
     """
     stages = DefaultDict(dict)
     num = 1
-    for in_element, in_value in in_values.items():
-        for out_element, out_value in in_values.items():
-            stage_name = "stage_" + str(num)
-            stages[stage_name]["input"] = in_element
-            stages[stage_name]["output"] = out_element
-            stages[stage_name]["type"] = "input"
-            num = num + 1
 
-    for in_element, in_value in in_values.items():
-        for out_element, out_value in exp_values.items():
-            stage_name = "stage_" + str(num)
-            stages[stage_name]["input"] = in_element
-            stages[stage_name]["output"] = out_element
+    for in_stage_name, in_stage in in_values.items():
+        if "register_q" in in_stage["type"]:
+            stage_name = "stage_" + str(in_stage_name) + "_" + str(
+                in_stage_name)
+            stages[stage_name]["type"] = "input"
+            stages[stage_name]["inputs"] = [
+                stage.cell for stage in in_stage["stage"]
+            ]
+            stages[stage_name]["outputs"] = stages[stage_name]["inputs"]
+    # Join the expected and output values dict.
+    out_values = exp_values | alert_values
+    for in_stage_name, in_stage in in_values.items():
+        for out_stage_name, out_stage in out_values.items():
+            stage_name = "stage_" + str(in_stage_name) + "_" + str(
+                out_stage_name)
             stages[stage_name]["type"] = "output"
-            num = num + 1
-        for out_element, out_value in alert_values.items():
-            stage_name = "stage_" + str(num)
-            stages[stage_name]["input"] = in_element
-            stages[stage_name]["output"] = out_element
-            stages[stage_name]["type"] = "output"
-            num = num + 1
+            if len(in_stage["stage"]) == len(out_stage["stage"]):
+                stages[stage_name]["inputs"] = [
+                    stage.cell for stage in in_stage["stage"]
+                ]
+                stages[stage_name]["outputs"] = [
+                    stage.cell for stage in out_stage["stage"]
+                ]
+            elif len(in_stage["stage"]) > len(out_stage["stage"]):
+                stages[stage_name]["inputs"] = [
+                    stage.cell for stage in in_stage["stage"]
+                ]
+                flatten_outputs = [stage.cell for stage in out_stage["stage"]]
+                # Fill up the output.
+                out_stage_cycle = cycle(flatten_outputs)
+                stages[stage_name]["outputs"] = [
+                    next(out_stage_cycle) for i in in_stage["stage"]
+                ]
+            else:
+                stages[stage_name]["outputs"] = [
+                    stage.cell for stage in out_stage["stage"]
+                ]
+                flatten_inputs = [stage.cell for stage in in_stage["stage"]]
+                # Fill up the input.
+                in_stage_cycle = cycle(flatten_inputs)
+                stages[stage_name]["inputs"] = [
+                    next(in_stage_cycle) for i in out_stage["stage"]
+                ]
 
     return stages
 
 
-def write_json_fi_model(args, stages: dict, in_values: dict,
-                        exp_values: dict) -> None:
+def write_json_fi_model(args, stages: dict, fault_mapping: dict,
+                        in_values: dict, exp_values: dict,
+                        alert_values: dict) -> None:
     """ Write fault model to JSON file.
     
     Args:
         args: The input arguments.
         stages: The parsed OTFI attributes.
-        in_values: 
-        exp_values: 
+        fault_mapping: The user-specified fault mapping.
+        in_values: The input values.
+        exp_values: The expected output values.
+        alert_values: The expected alert output values.
     
     Returns:
         The OTFI registers.
@@ -268,9 +392,19 @@ def write_json_fi_model(args, stages: dict, in_values: dict,
 
     data["simultaneous_faults"] = int(args.simultaneous_faults)
     data["stages"] = stages
-    data["input_values"] = in_values
-    data["output_values"] = exp_values
-
+    data["node_fault_mapping"] = fault_mapping
+    data["input_values"] = DefaultDict()
+    for stage_name, in_stage in in_values.items():
+        for stage in in_stage["stage"]:
+            data["input_values"][stage.cell] = stage.value
+    data["output_values"] = DefaultDict()
+    for stage_name, out_stage in exp_values.items():
+        for stage in out_stage["stage"]:
+            data["output_values"][stage.cell] = stage.value
+    data["alert_values"] = DefaultDict()
+    for stage_name, alert_stage in alert_values.items():
+        for stage in alert_stage["stage"]:
+            data["alert_values"][stage.cell] = stage.value
     json_data["fimodels"][fault_name] = data
 
     with open(json_file, 'w') as jfile:
@@ -279,7 +413,6 @@ def write_json_fi_model(args, stages: dict, in_values: dict,
 
 def main(argv=None):
     # Configure the logger.
-    logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     console = logging.StreamHandler()
     logger.addHandler(console)
@@ -288,15 +421,17 @@ def main(argv=None):
     args = parse_arguments(argv)
 
     module = open_module(args)
+    fault_mapping = open_fault_mapping(args)
     otfi_attr = parse_otfi_attr(module)
 
     otfi_registers = parse_otfi_registers(otfi_attr, module)
     otfi_in_values = parse_otfi_in_values(otfi_attr, otfi_registers)
     otfi_exp_values, otfi_alert_values = parse_otfi_expected_values(
-        otfi_attr, otfi_registers)
+        otfi_attr, otfi_registers, module)
     otfi_stages = create_otfi_stages(otfi_in_values, otfi_exp_values,
                                      otfi_alert_values)
-    write_json_fi_model(args, otfi_stages, otfi_in_values, otfi_exp_values)
+    write_json_fi_model(args, otfi_stages, fault_mapping, otfi_in_values,
+                        otfi_exp_values, otfi_alert_values)
 
     tstp_end = time.time()
     logger.info("fi_model_generator.py successful (%.2fs)" %

@@ -73,9 +73,9 @@ By default, the OTFI framework uses the
 [Nangate45](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/tree/master/flow/platforms/nangate45/lib)
 cell library. When switching to a different (e.g., proprietary) library, the
 following adaptions are required:
-- `template/fault_mapping.json.tpl`: The fault mapping specifies to which gate
-a target gate is replaced during the FI process.
 - `examples/config.json`: Define the names of common signals (e.g., the clock).
+- `examples/fault_mapping_cfg.json`: The fault mapping specifies to which gate a
+    target gate is replaced during the FI process.
 
 Then, convert the used cell library using the cell library generator script:
 ```console
@@ -88,8 +88,8 @@ FI injector in step 3.
 
 ### 1. Annotation and Synthesis
 
-With the information from above, the SystemVerilog code of the module needs to
-be annotated:
+To start the verification for the circuit shown in the Figure above, the
+SystemVerilog code needs to be annotated:
 ```verilog
 module aes_cipher_control (
   ...
@@ -98,11 +98,11 @@ module aes_cipher_control (
 );
   ...
   // Signals
-  (* keep, otfi_type = "register_d", otfi_input = 0 *)  logic [3:0] rnd_ctr_d;
-  (* keep, otfi_type = "register_q", otfi_input = 0 *)  logic [3:0] rnd_ctr_q;
-  (* keep, otfi_type = "register_d", otfi_input = 12 *)  logic [3:0] rnd_ctr_rem_d;
-  (* keep, otfi_type = "register_q", otfi_input = 12 *)  logic [3:0] rnd_ctr_rem_q;
-  (* keep, otfi_type = "alert_port", otfi_expected = 0 *)  logic rnd_ctr_err;
+  (* keep, otfi_type = "register_d", otfi_input = 0, otfi_stage = "2" *)     logic [3:0] rnd_ctr_d;
+  (* keep, otfi_type = "register_q", otfi_input = 0, otfi_stage = "1"  *)    logic [3:0] rnd_ctr_q;
+  (* keep, otfi_type = "register_d", otfi_input = 12, otfi_stage = "1"  *)   logic [3:0] rnd_ctr_rem_d;
+  (* keep, otfi_type = "register_q", otfi_input = 12, otfi_stage = "1"  *)   logic [3:0] rnd_ctr_rem_q;
+  (* keep, otfi_type = "alert_port", otfi_expected, otfi_stage = "3"  = 0 *) logic rnd_ctr_err;
   ...
 ```
 To synthesize the annotated AES cipher control module, use the 
@@ -126,8 +126,9 @@ The fault model is used by the OTFI framework to identify the security sensitive
 circuit and to perform the fault analysis. To automatically generate the fault
 model, run the fault model generator with the following parameters:
 ```console
-$ ./fi_model_generator.py -j examples/circuit_rnd_cntr.json 
+$ ./fi_model_generator.py -j examples/circuit_rnd_cntr.json \
                           -m aes_cipher_control -s 2 -n rnd_ctr \
+                          -c examples/fault_mapping_cfg.json \
                           -o fault_model_rnd_cntr.json
 ```
 The resulting fault model file contains the stages depicted in the circuit above
@@ -157,9 +158,9 @@ To analyze the effects of faults on specific gates, remove the `--auto_fl`
 argument and add the following fault location entry to the fault model:
 ```json
 "fault_locations": {
-  "$abc$16618$auto$blifparse.cc:381:parse_blif$16802": "stage_1",
-  "$abc$16618$auto$blifparse.cc:381:parse_blif$16815": "stage_1",
-  "$abc$16618$auto$blifparse.cc:381:parse_blif$16775": "stage_3"
+  "$abc$16618$auto$blifparse.cc:381:parse_blif$16802": "stage_1_1",
+  "$abc$16618$auto$blifparse.cc:381:parse_blif$16815": "stage_1_1",
+  "$abc$16618$auto$blifparse.cc:381:parse_blif$16775": "stage_1_3"
 }
 ```
 The first entry (`$16802`) is the OAI21 gate directly at the register for the
