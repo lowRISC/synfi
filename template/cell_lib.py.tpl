@@ -10,7 +10,6 @@
 import logging
 
 import networkx as nx
-from sympy import Symbol, false, true
 
 """Part of the fault injection framework for the OpenTitan.
 
@@ -19,12 +18,16 @@ boolean formula in CNF.
 """
 logger = logging.getLogger(__name__)
 
+# The number is the variable name of a logical 0/1 used by the SAT solver.
+one = 1
+zero = 2
+
 # Set the clock and reset name and values.
 clk_name = ${cell_lib.clk}
-clk_value = true
+clk_value = one
 
 rst_name = ${cell_lib.rst}
-rst_value = false
+rst_value = zero
 
 registers = ${cell_lib.reg}
 
@@ -172,74 +175,60 @@ def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
     if expected_inputs <= inputs.keys():
         input_symbols = {}
         for input_pin, input in inputs.items():
-            if graph.nodes[input.node][
-                    'node'].type == 'input' and clk_name in input.node:
-                input_symbols[input_pin] = clk_value
-            elif graph.nodes[input.node][
-                    'node'].type == 'input' and rst_name in input.node:
-                input_symbols[input_pin] = rst_value
-            elif graph.nodes[input.node]['node'].type == 'null_node':
-                input_symbols[input_pin] = false
+            if graph.nodes[input.node]['node'].type == 'null_node':
+                input_symbols[input_pin] = zero
             elif graph.nodes[input.node]['node'].type == 'one_node':
-                input_symbols[input_pin] = true
+                input_symbols[input_pin] = one
             else:
-                input_symbols[input_pin] = Symbol(input.node + '_' +
-                                                  input.out_pin)
+                input_symbols[input_pin] = input.name
 
         return input_symbols
     else:
         logger.error(inputs)
         raise Exception('Gate ' + type + ' is missing some inputs.')
 
-def AND2_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
-    """ AND2_X1_ZN gate.
-
-    Args:
-        inputs: { 'A1', 'A2', 'node_name' }
-        graph: The networkx graph of the circuit.
-    Returns:
-        ZN = (A1 & A2)
-    """
-    p = validate_inputs(inputs, graph, 'AND2_X1_ZN')
-    return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) & (p['node_name'] | ~p['A1'] | ~p['A2']))
 
 % for cell_function in cell_lib.cell_formulas:
-def ${cell_function.name}(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def ${cell_function.name}(inputs: dict, graph: nx.DiGraph, solver):
     ''' ${cell_function.name} gate.
 
     Args:
         inputs: ${cell_function.inputs}
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ${cell_function.output} = ${cell_function.function}
     '''
     p = validate_inputs(inputs, graph, '${cell_function.name}')
-    return (${cell_function.function_cnf})
+    % for clause in cell_function.clauses:
+    solver.add_clause(${clause})
+    % endfor
 
 % endfor
 
 ################################################################################
 #                      OTFI SPECIFC CELLS - DO NOT EDIT                        # 
 ################################################################################
-def xnor(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def xnor(inputs: dict, graph: nx.DiGraph, solver):
     """ xnor gate.
 
     Args:
         inputs: {'I1', 'I2', 'node_name'}.
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
 
     Returns:
         ZN = '!(I1 ^ I2)'.
     """
     p = validate_inputs(inputs, graph, 'xnor')
+    solver.add_clause([-p['I1'], -p['I2'], p['node_name']])
+    solver.add_clause([p['I1'], p['I2'], p['node_name']])
+    solver.add_clause([p['I1'], -p['I2'], -p['node_name']])
+    solver.add_clause([-p['I1'], p['I2'], -p['node_name']])
 
-    return ((~p['I1'] | ~p['I2'] | p['node_name']) &
-            (p['I1'] | p['I2'] | p['node_name']) &
-            (p['I1'] | ~p['I2'] | ~p['node_name']) &
-            (~p['I1'] | p['I2'] | ~p['node_name']))
 
-
-def xor(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def xor(inputs: dict, graph: nx.DiGraph, solver):
     """ xor gate.
 
     Args:
@@ -250,14 +239,13 @@ def xor(inputs: dict, graph: nx.DiGraph) -> Symbol:
         ZN = '(I1 ^ I2)'.
     """
     p = validate_inputs(inputs, graph, 'xor')
+    solver.add_clause([-p['I1'], -p['I2'], -p['node_name']])
+    solver.add_clause([p['I1'], p['I2'], -p['node_name']])
+    solver.add_clause([p['I1'], -p['I2'], p['node_name']])
+    solver.add_clause([-p['I1'], p['I2'], p['node_name']])
 
-    return ((~p['I1'] | ~p['I2'] | ~p['node_name']) &
-            (p['I1'] | p['I2'] | ~p['node_name']) &
-            (p['I1'] | ~p['I2'] | p['node_name']) &
-            (~p['I1'] | p['I2'] | p['node_name']))
 
-
-def and_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def and_output(inputs: dict, graph: nx.DiGraph, solver):
     """ and gate.
 
     AND gate for the output logic. As this is the last element of the formula
@@ -272,96 +260,168 @@ def and_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
     """
     if len(inputs) == 3:
         p = validate_inputs(inputs, graph, 'AND2')
-        return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-                (p['node_name'] | ~p['A1']
-                 | ~p['A2'])) & Symbol(inputs['node_name'].node + '_' +
-                                       inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['node_name'], -p['A1'], -p['A2']])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 4:
         p = validate_inputs(inputs, graph, 'AND3')
-        return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-                (p['A3'] | ~p['node_name']) &
-                (p['node_name'] | ~p['A1'] | ~p['A2']
-                 | ~p['A3'])) & Symbol(inputs['node_name'].node + '_' +
-                                       inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['node_name'], -p['A1'], -p['A2'], -p['A3']])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 5:
         p = validate_inputs(inputs, graph, 'AND4')
-        return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-                (p['A3'] | ~p['node_name']) & (p['A4'] | ~p['node_name']) &
-                (p['node_name'] | ~p['A1'] | ~p['A2'] | ~p['A3']
-                 | ~p['A4'])) & Symbol(inputs['node_name'].node + '_' +
-                                       inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause(
+            [p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4']])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 6:
         p = validate_inputs(inputs, graph, 'AND5')
-        return (
-            (~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['A4'] | ~p['A5']
-             | p['node_name']) & (p['A1'] | ~p['node_name']) &
-            (p['A2'] | ~p['node_name']) & (p['A3'] | ~p['node_name']) &
-            (p['A4'] | ~p['node_name']) &
-            (p['A5'] | ~p['node_name'])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause(
+            [p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5']])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 7:
         p = validate_inputs(inputs, graph, 'AND6')
-        return (
-            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
-             | p["node_name"]) & (p["A1"] | ~p["node_name"]) &
-            (p["A2"] | ~p["node_name"]) & (p["A3"] | ~p["node_name"]) &
-            (p["A4"] | ~p["node_name"]) & (p["A5"] | ~p["node_name"]) &
-            (p["A6"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6']
+        ])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 8:
         p = validate_inputs(inputs, graph, 'AND7')
-        return (
-            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
-             | ~p["A7"] | p["node_name"]) & (p["A1"] | ~p["node_name"]) &
-            (p["A2"] | ~p["node_name"]) & (p["A3"] | ~p["node_name"]) &
-            (p["A4"] | ~p["node_name"]) & (p["A5"] | ~p["node_name"]) &
-            (p["A6"] | ~p["node_name"]) &
-            (p["A7"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7']
+        ])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 9:
         p = validate_inputs(inputs, graph, 'AND8')
-        return (
-            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
-             | ~p["A7"] | ~p["A8"] | p["node_name"]) &
-            (p["A1"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
-            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
-            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
-            (p["A7"] | ~p["node_name"]) &
-            (p["A8"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8']
+        ])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 10:
         p = validate_inputs(inputs, graph, 'AND9')
-        return (
-            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
-             | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
-            (p["A1"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
-            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
-            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
-            (p["A7"] | ~p["node_name"]) & (p["A8"] | ~p["node_name"]) &
-            (p["A9"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([p['A9'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8'], -p['A9']
+        ])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 11:
         p = validate_inputs(inputs, graph, 'AND10')
-        return (
-            (~p["A1"] | ~p["A10"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"]
-             | ~p["A6"] | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
-            (p["A1"] | ~p["node_name"]) & (p["A10"] | ~p["node_name"]) &
-            (p["A2"] | ~p["node_name"]) & (p["A3"] | ~p["node_name"]) &
-            (p["A4"] | ~p["node_name"]) & (p["A5"] | ~p["node_name"]) &
-            (p["A6"] | ~p["node_name"]) & (p["A7"] | ~p["node_name"]) &
-            (p["A8"] | ~p["node_name"]) &
-            (p["A9"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([p['A9'], -p['node_name']])
+        solver.add_clause([p['A10'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8'], -p['A9'], -p['A10']
+        ])
+        solver.add_clause([p['node_name']])
+    elif len(inputs) == 16:
+        p = validate_inputs(inputs, graph, 'AND15')
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([p['A9'], -p['node_name']])
+        solver.add_clause([p['A10'], -p['node_name']])
+        solver.add_clause([p['A11'], -p['node_name']])
+        solver.add_clause([p['A12'], -p['node_name']])
+        solver.add_clause([p['A13'], -p['node_name']])
+        solver.add_clause([p['A14'], -p['node_name']])
+        solver.add_clause([p['A15'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8'], -p['A9'], -p['A10'], -p['A11'],
+            -p['A12'], -p['A13'], -p['A14'], -p['A15']
+        ])
+        solver.add_clause([p['node_name']])
+    elif len(inputs) == 20:
+        p = validate_inputs(inputs, graph, 'AND19')
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([p['A9'], -p['node_name']])
+        solver.add_clause([p['A10'], -p['node_name']])
+        solver.add_clause([p['A11'], -p['node_name']])
+        solver.add_clause([p['A12'], -p['node_name']])
+        solver.add_clause([p['A13'], -p['node_name']])
+        solver.add_clause([p['A14'], -p['node_name']])
+        solver.add_clause([p['A15'], -p['node_name']])
+        solver.add_clause([p['A16'], -p['node_name']])
+        solver.add_clause([p['A17'], -p['node_name']])
+        solver.add_clause([p['A18'], -p['node_name']])
+        solver.add_clause([p['A19'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8'], -p['A9'], -p['A10'], -p['A11'],
+            -p['A12'], -p['A13'], -p['A14'], -p['A15'], -p['A16'], -p['A17'],
+            -p['A18'], -p['A19']
+        ])
+        solver.add_clause([p['node_name']])
     else:
+        print(len(inputs))
         raise Exception('Missing and gate for output logic.')
 
-def or_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
+
+def or_output(inputs: dict, graph: nx.DiGraph, solver):
     """ or gate.
 
     OR gate for the output logic.
@@ -375,112 +435,110 @@ def or_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
     """
     if len(inputs) == 2:
         p = validate_inputs(inputs, graph, 'OR1')
-        return ((~p["A1"]  | p["node_name"]) & (p["A1"] | ~p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([p["A1"], -p["node_name"]])
     elif len(inputs) == 3:
         p = validate_inputs(inputs, graph, 'OR2')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([p["A1"], p["A2"], -p["node_name"]])
     elif len(inputs) == 4:
         p = validate_inputs(inputs, graph, 'OR3')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([p["A1"], p["A2"], p["A3"], -p["node_name"]])
     elif len(inputs) == 5:
         p = validate_inputs(inputs, graph, 'OR4')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
-                (~p["A4"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause(
+            [p["A1"], p["A2"], p["A3"], p["A4"], -p["node_name"]])
     elif len(inputs) == 6:
         p = validate_inputs(inputs, graph, 'OR5')
-        return (
-            (~p["A1"] | p["node_name"]) &
-            (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | ~p["node_name"])
-            & (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
-            (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause(
+            [p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], -p["node_name"]])
     elif len(inputs) == 7:
         p = validate_inputs(inputs, graph, 'OR6')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
-                 | ~p["node_name"]) & (~p["A2"] | p["node_name"]) &
-                (~p["A3"] | p["node_name"]) & (~p["A4"] | p["node_name"]) &
-                (~p["A5"] | p["node_name"]) & (~p["A6"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"],
+            -p["node_name"]
+        ])
     elif len(inputs) == 8:
         p = validate_inputs(inputs, graph, 'OR7')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
-                 | p["A7"] | ~p["node_name"]) & (~p["A2"] | p["node_name"]) &
-                (~p["A3"] | p["node_name"]) & (~p["A4"] | p["node_name"]) &
-                (~p["A5"] | p["node_name"]) & (~p["A6"] | p["node_name"]) &
-                (~p["A7"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([-p["A7"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"], p["A7"],
+            -p["node_name"]
+        ])
     elif len(inputs) == 9:
         p = validate_inputs(inputs, graph, 'OR8')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
-                 | p["A7"] | p["A8"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
-                (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]) &
-                (~p["A6"] | p["node_name"]) & (~p["A7"] | p["node_name"]) &
-                (~p["A8"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([-p["A7"], p["node_name"]])
+        solver.add_clause([-p["A8"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"], p["A7"],
+            p["A8"], -p["node_name"]
+        ])
     elif len(inputs) == 10:
         p = validate_inputs(inputs, graph, 'OR9')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
-                 | p["A7"] | p["A8"] | p["A9"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
-                (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]) &
-                (~p["A6"] | p["node_name"]) & (~p["A7"] | p["node_name"]) &
-                (~p["A8"] | p["node_name"]) & (~p["A9"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([-p["A7"], p["node_name"]])
+        solver.add_clause([-p["A8"], p["node_name"]])
+        solver.add_clause([-p["A9"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"], p["A7"],
+            p["A8"], p["A9"], -p["node_name"]
+        ])
     elif len(inputs) == 11:
         p = validate_inputs(inputs, graph, 'OR10')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
-                 | p["A7"] | p["A8"] | p["A9"] | p["A10"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
-                (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]) &
-                (~p["A6"] | p["node_name"]) & (~p["A7"] | p["node_name"]) &
-                (~p["A8"] | p["node_name"]) & (~p["A9"] | p["node_name"]) &
-                (~p["A10"] | p["node_name"]))
-    elif len(inputs) == 16:
-        p = validate_inputs(inputs, graph, 'AND15')
-        return (
-            (~p["A1"] | ~p["A10"] | ~p["A11"] | ~p["A12"] | ~p["A13"] |
-             ~p["A14"] | ~p["A15"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"]
-             | ~p["A6"] | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
-            (p["A1"] | ~p["node_name"]) & (p["A10"] | ~p["node_name"]) &
-            (p["A11"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
-            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
-            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
-            (p["A7"] | ~p["node_name"]) & (p["A8"] | ~p["node_name"]) &
-            (p["A9"] | ~p["node_name"]) & (p["A12"] | ~p["node_name"]) &
-            (p["A13"] | ~p["node_name"]) & (p["A14"] | ~p["node_name"]) &
-            (p["A15"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                   '_' +
-                                                   inputs['node_name'].out_pin)
-    elif len(inputs) == 20:
-        p = validate_inputs(inputs, graph, 'AND19')
-        return (
-            (~p["A1"] | ~p["A10"] | ~p["A11"] | ~p["A12"] | ~p["A13"]
-             | ~p["A14"] | ~p["A15"] | ~p["A16"] | ~p["A17"] | ~p["A18"]
-             | ~p["A19"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
-             | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
-            (p["A1"] | ~p["node_name"]) & (p["A10"] | ~p["node_name"]) &
-            (p["A11"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
-            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
-            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
-            (p["A7"] | ~p["node_name"]) & (p["A8"] | ~p["node_name"]) &
-            (p["A9"] | ~p["node_name"]) & (p["A12"] | ~p["node_name"]) &
-            (p["A13"] | ~p["node_name"]) & (p["A14"] | ~p["node_name"]) &
-            (p["A16"] | ~p["node_name"]) & (p["A17"] | ~p["node_name"]) &
-            (p["A18"] | ~p["node_name"]) & (p["A19"] | ~p["node_name"]) &
-            (p["A15"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                   '_' +
-                                                   inputs['node_name'].out_pin)
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([-p["A7"], p["node_name"]])
+        solver.add_clause([-p["A8"], p["node_name"]])
+        solver.add_clause([-p["A9"], p["node_name"]])
+        solver.add_clause([-p["A10"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"], p["A7"],
+            p["A8"], p["A9"], p["A10"], -p["node_name"]
+        ])
     else:
         raise Exception('Missing or gate for output logic.')
 
-def input_formula_Q(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def input_formula_Q(inputs: dict, graph: nx.DiGraph, solver):
     """ Sets a input pin to a predefined (0 or 1) value.
 
     Args:
@@ -496,14 +554,16 @@ def input_formula_Q(inputs: dict, graph: nx.DiGraph) -> Symbol:
     if inputs['I1'].node == 'one':
         # Input is connected to 1.
         # Return a one.
-        return (~true | p['node_name']) & (true | ~p['node_name'])
+        solver.add_clause([-one, p['node_name']])
+        solver.add_clause([one, -p['node_name']])
     else:
         # Input ist connected to 0.
         # Return a zero.
-        return (~false | p['node_name']) & (false | ~p['node_name'])
+        solver.add_clause([-zero, p['node_name']])
+        solver.add_clause([zero, -p['node_name']])
 
 
-def input_formula_QN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def input_formula_QN(inputs: dict, graph: nx.DiGraph, solver):
     """ Sets a input pin to a predefined (0 or 1) value.
 
     Args:
@@ -519,13 +579,15 @@ def input_formula_QN(inputs: dict, graph: nx.DiGraph) -> Symbol:
     if inputs['I1'].node == 'one':
         # Input is connected to 1.
         # Return a zero.
-        return (~false | p['node_name']) & (false | ~p['node_name'])
+        solver.add_clause([-zero, p['node_name']])
+        solver.add_clause([zero, -p['node_name']])
     else:
         # Input ist connected to 0.
         # Return a one.
-        return (~true | p['node_name']) & (true | ~p['node_name'])
+        solver.add_clause([-one, p['node_name']])
 
-def in_node_Q(inputs: dict, graph: nx.DiGraph) -> Symbol:
+
+def in_node_Q(inputs: dict, graph: nx.DiGraph, solver):
     """ In node Q
 
     Args:
@@ -536,9 +598,11 @@ def in_node_Q(inputs: dict, graph: nx.DiGraph) -> Symbol:
         Q = I
     """
     p = validate_inputs(inputs, graph, 'in_node')
-    return (~p['I1'] | p['node_name']) & (p['I1'] | ~p['node_name'])
+    solver.add_clause([-p['I1'], p['node_name']])
+    solver.add_clause([p['I1'], -p['node_name']])
 
-def in_node_QN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+
+def in_node_QN(inputs: dict, graph: nx.DiGraph, solver):
     """ In node QN
 
     Args:
@@ -549,9 +613,11 @@ def in_node_QN(inputs: dict, graph: nx.DiGraph) -> Symbol:
         Q = !I
     """
     p = validate_inputs(inputs, graph, 'in_node')
-    return (~p['I1'] | ~p['node_name']) & (p['I1'] | p['node_name'])
+    solver.add_clause([-p['I1'], -p['node_name']])
+    solver.add_clause([p['I1'], p['node_name']])
 
-def out_node(inputs: dict, graph: nx.DiGraph) -> Symbol:
+
+def out_node(inputs: dict, graph: nx.DiGraph, solver):
     """ Out node.
 
     Args:
@@ -562,10 +628,11 @@ def out_node(inputs: dict, graph: nx.DiGraph) -> Symbol:
         ZN = D.
     """
     p = validate_inputs(inputs, graph, 'out_node')
-    return (~p['D'] | p['node_name']) & (p['D'] | ~p['node_name'])
+    solver.add_clause([-p['D'], p['node_name']])
+    solver.add_clause([p['D'], -p['node_name']])
 
 
-def output(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def output(inputs: dict, graph: nx.DiGraph, solver):
     """ Out node.
 
     Args:
@@ -576,7 +643,8 @@ def output(inputs: dict, graph: nx.DiGraph) -> Symbol:
         ZN = I.
     """
     p = validate_inputs(inputs, graph, 'output')
-    return (~p['I1'] | p['node_name']) & (p['I1'] | ~p['node_name'])
+    solver.add_clause([-p['I1'], p['node_name']])
+    solver.add_clause([p['I1'], -p['node_name']])
 
 cell_mapping = {
 % for mapping in cell_lib.cell_mapping:

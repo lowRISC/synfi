@@ -78,7 +78,8 @@ def parse_arguments(argv):
     args = parser.parse_args(argv)
 
     if args.version:
-        helpers.show_and_exit(__file__, ["networkx", "numpy", "ray", "sympy"])
+        helpers.show_and_exit(
+            __file__, ["networkx", "numpy", "ray", "sympy", "python-sat"])
 
     return args
 
@@ -388,7 +389,7 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
             if out_node_type == "output":
                 for edge in graph.in_edges(node_out_name):
                     graph[edge[0]][edge[1]]["in_pin"] = "I1"
-    
+
     return graph
 
 

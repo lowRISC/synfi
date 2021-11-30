@@ -9,7 +9,6 @@
 import logging
 
 import networkx as nx
-from sympy import Symbol, false, true
 
 """Part of the fault injection framework for the OpenTitan.
 
@@ -18,12 +17,16 @@ boolean formula in CNF.
 """
 logger = logging.getLogger(__name__)
 
+# The number is the variable name of a logical 0/1 used by the SAT solver.
+one = 1
+zero = 2
+
 # Set the clock and reset name and values.
 clk_name = 'clk_i'
-clk_value = true
+clk_value = one
 
 rst_name = 'rst_ni'
-rst_value = false
+rst_value = zero
 
 registers = {'DFFS_X1', 'DFFR_X1'}
 
@@ -638,19 +641,12 @@ def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
     if expected_inputs <= inputs.keys():
         input_symbols = {}
         for input_pin, input in inputs.items():
-            if graph.nodes[input.node][
-                    'node'].type == 'input' and clk_name in input.node:
-                input_symbols[input_pin] = clk_value
-            elif graph.nodes[input.node][
-                    'node'].type == 'input' and rst_name in input.node:
-                input_symbols[input_pin] = rst_value
-            elif graph.nodes[input.node]['node'].type == 'null_node':
-                input_symbols[input_pin] = false
+            if graph.nodes[input.node]['node'].type == 'null_node':
+                input_symbols[input_pin] = zero
             elif graph.nodes[input.node]['node'].type == 'one_node':
-                input_symbols[input_pin] = true
+                input_symbols[input_pin] = one
             else:
-                input_symbols[input_pin] = Symbol(input.node + '_' +
-                                                  input.out_pin)
+                input_symbols[input_pin] = input.name
 
         return input_symbols
     else:
@@ -658,1557 +654,1841 @@ def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
         raise Exception('Gate ' + type + ' is missing some inputs.')
 
 
-def AND2_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
-    """ AND2_X1_ZN gate.
+def AND2_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
+    ''' AND2_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (A1 & A2)
-    """
+    '''
     p = validate_inputs(inputs, graph, 'AND2_X1_ZN')
-    return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A1'] | ~p['A2']))
+    solver.add_clause([p['A1'], -p['node_name']])
+    solver.add_clause([p['A2'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A1'], -p['A2']])
 
 
-def AND2_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AND2_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AND2_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (A1 & A2)
     '''
     p = validate_inputs(inputs, graph, 'AND2_X2_ZN')
-    return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A1'] | ~p['A2']))
+    solver.add_clause([p['A1'], -p['node_name']])
+    solver.add_clause([p['A2'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A1'], -p['A2']])
 
 
-def AND2_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AND2_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AND2_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (A1 & A2)
     '''
     p = validate_inputs(inputs, graph, 'AND2_X4_ZN')
-    return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A1'] | ~p['A2']))
+    solver.add_clause([p['A1'], -p['node_name']])
+    solver.add_clause([p['A2'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A1'], -p['A2']])
 
 
-def AND3_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AND3_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AND3_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = ((A1 & A2) & A3)
     '''
     p = validate_inputs(inputs, graph, 'AND3_X1_ZN')
-    return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-            (p['A3'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A1'] | ~p['A2'] | ~p['A3']))
+    solver.add_clause([p['A1'], -p['node_name']])
+    solver.add_clause([p['A2'], -p['node_name']])
+    solver.add_clause([p['A3'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A1'], -p['A2'], -p['A3']])
 
 
-def AND3_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AND3_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AND3_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = ((A1 & A2) & A3)
     '''
     p = validate_inputs(inputs, graph, 'AND3_X2_ZN')
-    return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-            (p['A3'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A1'] | ~p['A2'] | ~p['A3']))
+    solver.add_clause([p['A1'], -p['node_name']])
+    solver.add_clause([p['A2'], -p['node_name']])
+    solver.add_clause([p['A3'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A1'], -p['A2'], -p['A3']])
 
 
-def AND3_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AND3_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AND3_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = ((A1 & A2) & A3)
     '''
     p = validate_inputs(inputs, graph, 'AND3_X4_ZN')
-    return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-            (p['A3'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A1'] | ~p['A2'] | ~p['A3']))
+    solver.add_clause([p['A1'], -p['node_name']])
+    solver.add_clause([p['A2'], -p['node_name']])
+    solver.add_clause([p['A3'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A1'], -p['A2'], -p['A3']])
 
 
-def AND4_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AND4_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AND4_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (((A1 & A2) & A3) & A4)
     '''
     p = validate_inputs(inputs, graph, 'AND4_X1_ZN')
-    return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-            (p['A3'] | ~p['node_name']) & (p['A4'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['A4']))
+    solver.add_clause([p['A1'], -p['node_name']])
+    solver.add_clause([p['A2'], -p['node_name']])
+    solver.add_clause([p['A3'], -p['node_name']])
+    solver.add_clause([p['A4'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4']])
 
 
-def AND4_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AND4_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AND4_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (((A1 & A2) & A3) & A4)
     '''
     p = validate_inputs(inputs, graph, 'AND4_X2_ZN')
-    return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-            (p['A3'] | ~p['node_name']) & (p['A4'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['A4']))
+    solver.add_clause([p['A1'], -p['node_name']])
+    solver.add_clause([p['A2'], -p['node_name']])
+    solver.add_clause([p['A3'], -p['node_name']])
+    solver.add_clause([p['A4'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4']])
 
 
-def AND4_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AND4_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AND4_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (((A1 & A2) & A3) & A4)
     '''
     p = validate_inputs(inputs, graph, 'AND4_X4_ZN')
-    return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-            (p['A3'] | ~p['node_name']) & (p['A4'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['A4']))
+    solver.add_clause([p['A1'], -p['node_name']])
+    solver.add_clause([p['A2'], -p['node_name']])
+    solver.add_clause([p['A3'], -p['node_name']])
+    solver.add_clause([p['A4'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4']])
 
 
-def AOI21_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI21_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI21_X1_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A | (B1 & B2))
     '''
     p = validate_inputs(inputs, graph, 'AOI21_X1_ZN')
-    return ((p['A'] | p['B1'] | p['node_name']) &
-            (p['A'] | p['B2'] | p['node_name']) & (~p['A'] | ~p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['B1'], p['node_name']])
+    solver.add_clause([p['A'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
 
 
-def AOI21_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI21_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI21_X2_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A | (B1 & B2))
     '''
     p = validate_inputs(inputs, graph, 'AOI21_X2_ZN')
-    return ((p['A'] | p['B1'] | p['node_name']) &
-            (p['A'] | p['B2'] | p['node_name']) & (~p['A'] | ~p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['B1'], p['node_name']])
+    solver.add_clause([p['A'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
 
 
-def AOI21_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI21_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI21_X4_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A | (B1 & B2))
     '''
     p = validate_inputs(inputs, graph, 'AOI21_X4_ZN')
-    return ((p['A'] | p['B1'] | p['node_name']) &
-            (p['A'] | p['B2'] | p['node_name']) & (~p['A'] | ~p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['B1'], p['node_name']])
+    solver.add_clause([p['A'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
 
 
-def AOI22_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI22_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI22_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 & A2) | (B1 & B2))
     '''
     p = validate_inputs(inputs, graph, 'AOI22_X1_ZN')
-    return ((p['A1'] | p['B1'] | p['node_name']) &
-            (p['A1'] | p['B2'] | p['node_name']) &
-            (p['A2'] | p['B1'] | p['node_name']) &
-            (p['A2'] | p['B2'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['B1'], p['node_name']])
+    solver.add_clause([p['A1'], p['B2'], p['node_name']])
+    solver.add_clause([p['A2'], p['B1'], p['node_name']])
+    solver.add_clause([p['A2'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
 
 
-def AOI22_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI22_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI22_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 & A2) | (B1 & B2))
     '''
     p = validate_inputs(inputs, graph, 'AOI22_X2_ZN')
-    return ((p['A1'] | p['B1'] | p['node_name']) &
-            (p['A1'] | p['B2'] | p['node_name']) &
-            (p['A2'] | p['B1'] | p['node_name']) &
-            (p['A2'] | p['B2'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['B1'], p['node_name']])
+    solver.add_clause([p['A1'], p['B2'], p['node_name']])
+    solver.add_clause([p['A2'], p['B1'], p['node_name']])
+    solver.add_clause([p['A2'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
 
 
-def AOI22_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI22_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI22_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 & A2) | (B1 & B2))
     '''
     p = validate_inputs(inputs, graph, 'AOI22_X4_ZN')
-    return ((p['A1'] | p['B1'] | p['node_name']) &
-            (p['A1'] | p['B2'] | p['node_name']) &
-            (p['A2'] | p['B1'] | p['node_name']) &
-            (p['A2'] | p['B2'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['B1'], p['node_name']])
+    solver.add_clause([p['A1'], p['B2'], p['node_name']])
+    solver.add_clause([p['A2'], p['B1'], p['node_name']])
+    solver.add_clause([p['A2'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
 
 
-def AOI211_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI211_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI211_X1_ZN gate.
 
     Args:
-        inputs: { 'A', 'B', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((C1 & C2) | B) | A)
     '''
     p = validate_inputs(inputs, graph, 'AOI211_X1_ZN')
-    return ((~p['A'] | ~p['node_name']) & (~p['B'] | ~p['node_name']) &
-            (p['A'] | p['B'] | p['C1'] | p['node_name']) &
-            (p['A'] | p['B'] | p['C2'] | p['node_name']) &
-            (~p['C1'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([-p['A'], -p['node_name']])
+    solver.add_clause([-p['B'], -p['node_name']])
+    solver.add_clause([p['A'], p['B'], p['C1'], p['node_name']])
+    solver.add_clause([p['A'], p['B'], p['C2'], p['node_name']])
+    solver.add_clause([-p['C1'], -p['C2'], -p['node_name']])
 
 
-def AOI211_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI211_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI211_X2_ZN gate.
 
     Args:
-        inputs: { 'A', 'B', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((C1 & C2) | B) | A)
     '''
     p = validate_inputs(inputs, graph, 'AOI211_X2_ZN')
-    return ((~p['A'] | ~p['node_name']) & (~p['B'] | ~p['node_name']) &
-            (p['A'] | p['B'] | p['C1'] | p['node_name']) &
-            (p['A'] | p['B'] | p['C2'] | p['node_name']) &
-            (~p['C1'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([-p['A'], -p['node_name']])
+    solver.add_clause([-p['B'], -p['node_name']])
+    solver.add_clause([p['A'], p['B'], p['C1'], p['node_name']])
+    solver.add_clause([p['A'], p['B'], p['C2'], p['node_name']])
+    solver.add_clause([-p['C1'], -p['C2'], -p['node_name']])
 
 
-def AOI211_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI211_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI211_X4_ZN gate.
 
     Args:
-        inputs: { 'A', 'B', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(!(!(((C1 & C2) | B) | A)))
     '''
     p = validate_inputs(inputs, graph, 'AOI211_X4_ZN')
-    return ((~p['A'] | ~p['node_name']) & (~p['B'] | ~p['node_name']) &
-            (p['A'] | p['B'] | p['C1'] | p['node_name']) &
-            (p['A'] | p['B'] | p['C2'] | p['node_name']) &
-            (~p['C1'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([-p['A'], -p['node_name']])
+    solver.add_clause([-p['B'], -p['node_name']])
+    solver.add_clause([p['A'], p['B'], p['C1'], p['node_name']])
+    solver.add_clause([p['A'], p['B'], p['C2'], p['node_name']])
+    solver.add_clause([-p['C1'], -p['C2'], -p['node_name']])
 
 
-def AOI221_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI221_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI221_X1_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((C1 & C2) | A) | (B1 & B2))
     '''
     p = validate_inputs(inputs, graph, 'AOI221_X1_ZN')
-    return ((~p['A'] | ~p['node_name']) &
-            (p['A'] | p['B1'] | p['C1'] | p['node_name']) &
-            (p['A'] | p['B1'] | p['C2'] | p['node_name']) &
-            (p['A'] | p['B2'] | p['C1'] | p['node_name']) &
-            (p['A'] | p['B2'] | p['C2'] | p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']) &
-            (~p['C1'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([-p['A'], -p['node_name']])
+    solver.add_clause([p['A'], p['B1'], p['C1'], p['node_name']])
+    solver.add_clause([p['A'], p['B1'], p['C2'], p['node_name']])
+    solver.add_clause([p['A'], p['B2'], p['C1'], p['node_name']])
+    solver.add_clause([p['A'], p['B2'], p['C2'], p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['C1'], -p['C2'], -p['node_name']])
 
 
-def AOI221_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI221_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI221_X2_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((C1 & C2) | A) | (B1 & B2))
     '''
     p = validate_inputs(inputs, graph, 'AOI221_X2_ZN')
-    return ((~p['A'] | ~p['node_name']) &
-            (p['A'] | p['B1'] | p['C1'] | p['node_name']) &
-            (p['A'] | p['B1'] | p['C2'] | p['node_name']) &
-            (p['A'] | p['B2'] | p['C1'] | p['node_name']) &
-            (p['A'] | p['B2'] | p['C2'] | p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']) &
-            (~p['C1'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([-p['A'], -p['node_name']])
+    solver.add_clause([p['A'], p['B1'], p['C1'], p['node_name']])
+    solver.add_clause([p['A'], p['B1'], p['C2'], p['node_name']])
+    solver.add_clause([p['A'], p['B2'], p['C1'], p['node_name']])
+    solver.add_clause([p['A'], p['B2'], p['C2'], p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['C1'], -p['C2'], -p['node_name']])
 
 
-def AOI221_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI221_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI221_X4_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(!(!(((C1 & C2) | A) | (B1 & B2))))
     '''
     p = validate_inputs(inputs, graph, 'AOI221_X4_ZN')
-    return ((~p['A'] | ~p['node_name']) &
-            (p['A'] | p['B1'] | p['C1'] | p['node_name']) &
-            (p['A'] | p['B1'] | p['C2'] | p['node_name']) &
-            (p['A'] | p['B2'] | p['C1'] | p['node_name']) &
-            (p['A'] | p['B2'] | p['C2'] | p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']) &
-            (~p['C1'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([-p['A'], -p['node_name']])
+    solver.add_clause([p['A'], p['B1'], p['C1'], p['node_name']])
+    solver.add_clause([p['A'], p['B1'], p['C2'], p['node_name']])
+    solver.add_clause([p['A'], p['B2'], p['C1'], p['node_name']])
+    solver.add_clause([p['A'], p['B2'], p['C2'], p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['C1'], -p['C2'], -p['node_name']])
 
 
-def AOI222_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI222_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI222_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((A1 & A2) | (B1 & B2)) | (C1 & C2))
     '''
     p = validate_inputs(inputs, graph, 'AOI222_X1_ZN')
-    return ((p['A1'] | p['B1'] | p['C1'] | p['node_name']) &
-            (p['A1'] | p['B1'] | p['C2'] | p['node_name']) &
-            (p['A1'] | p['B2'] | p['C1'] | p['node_name']) &
-            (p['A1'] | p['B2'] | p['C2'] | p['node_name']) &
-            (p['A2'] | p['B1'] | p['C1'] | p['node_name']) &
-            (p['A2'] | p['B1'] | p['C2'] | p['node_name']) &
-            (p['A2'] | p['B2'] | p['C1'] | p['node_name']) &
-            (p['A2'] | p['B2'] | p['C2'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']) &
-            (~p['C1'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['B1'], p['C1'], p['node_name']])
+    solver.add_clause([p['A1'], p['B1'], p['C2'], p['node_name']])
+    solver.add_clause([p['A1'], p['B2'], p['C1'], p['node_name']])
+    solver.add_clause([p['A1'], p['B2'], p['C2'], p['node_name']])
+    solver.add_clause([p['A2'], p['B1'], p['C1'], p['node_name']])
+    solver.add_clause([p['A2'], p['B1'], p['C2'], p['node_name']])
+    solver.add_clause([p['A2'], p['B2'], p['C1'], p['node_name']])
+    solver.add_clause([p['A2'], p['B2'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['C1'], -p['C2'], -p['node_name']])
 
 
-def AOI222_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI222_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI222_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((A1 & A2) | (B1 & B2)) | (C1 & C2))
     '''
     p = validate_inputs(inputs, graph, 'AOI222_X2_ZN')
-    return ((p['A1'] | p['B1'] | p['C1'] | p['node_name']) &
-            (p['A1'] | p['B1'] | p['C2'] | p['node_name']) &
-            (p['A1'] | p['B2'] | p['C1'] | p['node_name']) &
-            (p['A1'] | p['B2'] | p['C2'] | p['node_name']) &
-            (p['A2'] | p['B1'] | p['C1'] | p['node_name']) &
-            (p['A2'] | p['B1'] | p['C2'] | p['node_name']) &
-            (p['A2'] | p['B2'] | p['C1'] | p['node_name']) &
-            (p['A2'] | p['B2'] | p['C2'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']) &
-            (~p['C1'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['B1'], p['C1'], p['node_name']])
+    solver.add_clause([p['A1'], p['B1'], p['C2'], p['node_name']])
+    solver.add_clause([p['A1'], p['B2'], p['C1'], p['node_name']])
+    solver.add_clause([p['A1'], p['B2'], p['C2'], p['node_name']])
+    solver.add_clause([p['A2'], p['B1'], p['C1'], p['node_name']])
+    solver.add_clause([p['A2'], p['B1'], p['C2'], p['node_name']])
+    solver.add_clause([p['A2'], p['B2'], p['C1'], p['node_name']])
+    solver.add_clause([p['A2'], p['B2'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['C1'], -p['C2'], -p['node_name']])
 
 
-def AOI222_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def AOI222_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AOI222_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(!(!(((A1 & A2) | (B1 & B2)) | (C1 & C2))))
     '''
     p = validate_inputs(inputs, graph, 'AOI222_X4_ZN')
-    return ((p['A1'] | p['B1'] | p['C1'] | p['node_name']) &
-            (p['A1'] | p['B1'] | p['C2'] | p['node_name']) &
-            (p['A1'] | p['B2'] | p['C1'] | p['node_name']) &
-            (p['A1'] | p['B2'] | p['C2'] | p['node_name']) &
-            (p['A2'] | p['B1'] | p['C1'] | p['node_name']) &
-            (p['A2'] | p['B1'] | p['C2'] | p['node_name']) &
-            (p['A2'] | p['B2'] | p['C1'] | p['node_name']) &
-            (p['A2'] | p['B2'] | p['C2'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['node_name']) &
-            (~p['B1'] | ~p['B2'] | ~p['node_name']) &
-            (~p['C1'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['B1'], p['C1'], p['node_name']])
+    solver.add_clause([p['A1'], p['B1'], p['C2'], p['node_name']])
+    solver.add_clause([p['A1'], p['B2'], p['C1'], p['node_name']])
+    solver.add_clause([p['A1'], p['B2'], p['C2'], p['node_name']])
+    solver.add_clause([p['A2'], p['B1'], p['C1'], p['node_name']])
+    solver.add_clause([p['A2'], p['B1'], p['C2'], p['node_name']])
+    solver.add_clause([p['A2'], p['B2'], p['C1'], p['node_name']])
+    solver.add_clause([p['A2'], p['B2'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['node_name']])
+    solver.add_clause([-p['B1'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['C1'], -p['C2'], -p['node_name']])
 
 
-def BUF_X1_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def BUF_X1_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' BUF_X1_Z gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'BUF_X1_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def BUF_X2_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def BUF_X2_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' BUF_X2_Z gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'BUF_X2_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def BUF_X4_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def BUF_X4_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' BUF_X4_Z gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'BUF_X4_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def BUF_X8_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def BUF_X8_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' BUF_X8_Z gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'BUF_X8_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def BUF_X16_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def BUF_X16_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' BUF_X16_Z gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'BUF_X16_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def BUF_X32_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def BUF_X32_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' BUF_X32_Z gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'BUF_X32_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def CLKBUF_X1_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def CLKBUF_X1_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' CLKBUF_X1_Z gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'CLKBUF_X1_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def CLKBUF_X2_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def CLKBUF_X2_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' CLKBUF_X2_Z gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'CLKBUF_X2_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def CLKBUF_X3_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def CLKBUF_X3_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' CLKBUF_X3_Z gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'CLKBUF_X3_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def FA_X1_CO(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def FA_X1_CO(inputs: dict, graph: nx.DiGraph, solver):
     ''' FA_X1_CO gate.
 
     Args:
-        inputs: { 'A', 'B', 'CL', 'node_name' }
+        inputs: { 'A', 'B', 'CL','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         CO = ((A & B) | (CI & (A | B)))
     '''
     p = validate_inputs(inputs, graph, 'FA_X1_CO')
-    return ((p['A'] | p['B'] | ~p['node_name']) &
-            (p['A'] | p['CL'] | ~p['node_name']) &
-            (p['B'] | p['CL'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A'] | ~p['B']) &
-            (p['node_name'] | ~p['A'] | ~p['CL']) &
-            (p['node_name'] | ~p['B'] | ~p['CL']))
+    solver.add_clause([p['A'], p['B'], -p['node_name']])
+    solver.add_clause([p['A'], p['CL'], -p['node_name']])
+    solver.add_clause([p['B'], p['CL'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A'], -p['B']])
+    solver.add_clause([p['node_name'], -p['A'], -p['CL']])
+    solver.add_clause([p['node_name'], -p['B'], -p['CL']])
 
 
-def FA_X1_S(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def FA_X1_S(inputs: dict, graph: nx.DiGraph, solver):
     ''' FA_X1_S gate.
 
     Args:
-        inputs: { 'A', 'B', 'CL', 'node_name' }
+        inputs: { 'A', 'B', 'CL','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         S = (CI ^ (A ^ B))
     '''
     p = validate_inputs(inputs, graph, 'FA_X1_S')
-    return ((p['A'] | p['B'] | p['CL'] | ~p['node_name']) &
-            (p['A'] | p['B'] | p['node_name'] | ~p['CL']) &
-            (p['A'] | p['CL'] | p['node_name'] | ~p['B']) &
-            (p['B'] | p['CL'] | p['node_name'] | ~p['A']) &
-            (p['A'] | ~p['B'] | ~p['CL'] | ~p['node_name']) &
-            (p['B'] | ~p['A'] | ~p['CL'] | ~p['node_name']) &
-            (p['CL'] | ~p['A'] | ~p['B'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A'] | ~p['B'] | ~p['CL']))
+    solver.add_clause([p['A'], p['B'], p['CL'], -p['node_name']])
+    solver.add_clause([p['A'], p['B'], p['node_name'], -p['CL']])
+    solver.add_clause([p['A'], p['CL'], p['node_name'], -p['B']])
+    solver.add_clause([p['B'], p['CL'], p['node_name'], -p['A']])
+    solver.add_clause([p['A'], -p['B'], -p['CL'], -p['node_name']])
+    solver.add_clause([p['B'], -p['A'], -p['CL'], -p['node_name']])
+    solver.add_clause([p['CL'], -p['A'], -p['B'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A'], -p['B'], -p['CL']])
 
 
-def HA_X1_CO(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def HA_X1_CO(inputs: dict, graph: nx.DiGraph, solver):
     ''' HA_X1_CO gate.
 
     Args:
-        inputs: { 'A', 'B', 'node_name' }
+        inputs: { 'A', 'B','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         CO = (A & B)
     '''
     p = validate_inputs(inputs, graph, 'HA_X1_CO')
-    return ((p['A'] | ~p['node_name']) & (p['B'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A'] | ~p['B']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['B'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A'], -p['B']])
 
 
-def HA_X1_S(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def HA_X1_S(inputs: dict, graph: nx.DiGraph, solver):
     ''' HA_X1_S gate.
 
     Args:
-        inputs: { 'A', 'B', 'node_name' }
+        inputs: { 'A', 'B','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         S = (A ^ B)
     '''
     p = validate_inputs(inputs, graph, 'HA_X1_S')
-    return ((p['A'] | p['B'] | ~p['node_name']) &
-            (p['A'] | p['node_name'] | ~p['B']) &
-            (p['B'] | p['node_name'] | ~p['A']) &
-            (~p['A'] | ~p['B'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['B'], -p['node_name']])
+    solver.add_clause([p['A'], p['node_name'], -p['B']])
+    solver.add_clause([p['B'], p['node_name'], -p['A']])
+    solver.add_clause([-p['A'], -p['B'], -p['node_name']])
 
 
-def INV_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def INV_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' INV_X1_ZN gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !A
     '''
     p = validate_inputs(inputs, graph, 'INV_X1_ZN')
-    return ((p['A'] | p['node_name']) & (~p['A'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([-p['A'], -p['node_name']])
 
 
-def INV_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def INV_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' INV_X2_ZN gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !A
     '''
     p = validate_inputs(inputs, graph, 'INV_X2_ZN')
-    return ((p['A'] | p['node_name']) & (~p['A'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([-p['A'], -p['node_name']])
 
 
-def INV_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def INV_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' INV_X4_ZN gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !A
     '''
     p = validate_inputs(inputs, graph, 'INV_X4_ZN')
-    return ((p['A'] | p['node_name']) & (~p['A'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([-p['A'], -p['node_name']])
 
 
-def INV_X8_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def INV_X8_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' INV_X8_ZN gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !A
     '''
     p = validate_inputs(inputs, graph, 'INV_X8_ZN')
-    return ((p['A'] | p['node_name']) & (~p['A'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([-p['A'], -p['node_name']])
 
 
-def INV_X16_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def INV_X16_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' INV_X16_ZN gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !A
     '''
     p = validate_inputs(inputs, graph, 'INV_X16_ZN')
-    return ((p['A'] | p['node_name']) & (~p['A'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([-p['A'], -p['node_name']])
 
 
-def INV_X32_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def INV_X32_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' INV_X32_ZN gate.
 
     Args:
-        inputs: { 'A', 'node_name' }
+        inputs: { 'A','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !A
     '''
     p = validate_inputs(inputs, graph, 'INV_X32_ZN')
-    return ((p['A'] | p['node_name']) & (~p['A'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([-p['A'], -p['node_name']])
 
 
-def MUX2_X1_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def MUX2_X1_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' MUX2_X1_Z gate.
 
     Args:
-        inputs: { 'A', 'B', 'K', 'node_name' }
+        inputs: { 'A', 'B', 'K','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = ((S & B) | (A & !S))
     '''
     p = validate_inputs(inputs, graph, 'MUX2_X1_Z')
-    return ((p['A'] | p['K'] | ~p['node_name']) &
-            (p['K'] | p['node_name'] | ~p['A']) &
-            (p['B'] | ~p['K'] | ~p['node_name']) &
-            (p['node_name'] | ~p['B'] | ~p['K']))
+    solver.add_clause([p['A'], p['K'], -p['node_name']])
+    solver.add_clause([p['K'], p['node_name'], -p['A']])
+    solver.add_clause([p['B'], -p['K'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['B'], -p['K']])
 
 
-def MUX2_X2_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def MUX2_X2_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' MUX2_X2_Z gate.
 
     Args:
-        inputs: { 'A', 'B', 'K', 'node_name' }
+        inputs: { 'A', 'B', 'K','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = ((S & B) | (A & !S))
     '''
     p = validate_inputs(inputs, graph, 'MUX2_X2_Z')
-    return ((p['A'] | p['K'] | ~p['node_name']) &
-            (p['K'] | p['node_name'] | ~p['A']) &
-            (p['B'] | ~p['K'] | ~p['node_name']) &
-            (p['node_name'] | ~p['B'] | ~p['K']))
+    solver.add_clause([p['A'], p['K'], -p['node_name']])
+    solver.add_clause([p['K'], p['node_name'], -p['A']])
+    solver.add_clause([p['B'], -p['K'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['B'], -p['K']])
 
 
-def NAND2_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NAND2_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NAND2_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A1 & A2)
     '''
     p = validate_inputs(inputs, graph, 'NAND2_X1_ZN')
-    return ((p['A1'] | p['node_name']) & (p['A2'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['node_name']])
+    solver.add_clause([p['A2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['node_name']])
 
 
-def NAND2_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NAND2_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NAND2_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A1 & A2)
     '''
     p = validate_inputs(inputs, graph, 'NAND2_X2_ZN')
-    return ((p['A1'] | p['node_name']) & (p['A2'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['node_name']])
+    solver.add_clause([p['A2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['node_name']])
 
 
-def NAND2_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NAND2_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NAND2_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A1 & A2)
     '''
     p = validate_inputs(inputs, graph, 'NAND2_X4_ZN')
-    return ((p['A1'] | p['node_name']) & (p['A2'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['node_name']])
+    solver.add_clause([p['A2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['node_name']])
 
 
-def NAND3_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NAND3_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NAND3_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 & A2) & A3)
     '''
     p = validate_inputs(inputs, graph, 'NAND3_X1_ZN')
-    return ((p['A1'] | p['node_name']) & (p['A2'] | p['node_name']) &
-            (p['A3'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['node_name']])
+    solver.add_clause([p['A2'], p['node_name']])
+    solver.add_clause([p['A3'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['A3'], -p['node_name']])
 
 
-def NAND3_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NAND3_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NAND3_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 & A2) & A3)
     '''
     p = validate_inputs(inputs, graph, 'NAND3_X2_ZN')
-    return ((p['A1'] | p['node_name']) & (p['A2'] | p['node_name']) &
-            (p['A3'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['node_name']])
+    solver.add_clause([p['A2'], p['node_name']])
+    solver.add_clause([p['A3'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['A3'], -p['node_name']])
 
 
-def NAND3_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NAND3_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NAND3_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 & A2) & A3)
     '''
     p = validate_inputs(inputs, graph, 'NAND3_X4_ZN')
-    return ((p['A1'] | p['node_name']) & (p['A2'] | p['node_name']) &
-            (p['A3'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['node_name']])
+    solver.add_clause([p['A2'], p['node_name']])
+    solver.add_clause([p['A3'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['A2'], -p['A3'], -p['node_name']])
 
 
-def NAND4_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NAND4_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NAND4_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((A1 & A2) & A3) & A4)
     '''
     p = validate_inputs(inputs, graph, 'NAND4_X1_ZN')
-    return ((p['A1'] | p['node_name']) & (p['A2'] | p['node_name']) &
-            (p['A3'] | p['node_name']) & (p['A4'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['A4'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['node_name']])
+    solver.add_clause([p['A2'], p['node_name']])
+    solver.add_clause([p['A3'], p['node_name']])
+    solver.add_clause([p['A4'], p['node_name']])
+    solver.add_clause(
+        [-p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['node_name']])
 
 
-def NAND4_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NAND4_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NAND4_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((A1 & A2) & A3) & A4)
     '''
     p = validate_inputs(inputs, graph, 'NAND4_X2_ZN')
-    return ((p['A1'] | p['node_name']) & (p['A2'] | p['node_name']) &
-            (p['A3'] | p['node_name']) & (p['A4'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['A4'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['node_name']])
+    solver.add_clause([p['A2'], p['node_name']])
+    solver.add_clause([p['A3'], p['node_name']])
+    solver.add_clause([p['A4'], p['node_name']])
+    solver.add_clause(
+        [-p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['node_name']])
 
 
-def NAND4_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NAND4_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NAND4_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((A1 & A2) & A3) & A4)
     '''
     p = validate_inputs(inputs, graph, 'NAND4_X4_ZN')
-    return ((p['A1'] | p['node_name']) & (p['A2'] | p['node_name']) &
-            (p['A3'] | p['node_name']) & (p['A4'] | p['node_name']) &
-            (~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['A4'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['node_name']])
+    solver.add_clause([p['A2'], p['node_name']])
+    solver.add_clause([p['A3'], p['node_name']])
+    solver.add_clause([p['A4'], p['node_name']])
+    solver.add_clause(
+        [-p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['node_name']])
 
 
-def NOR2_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NOR2_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NOR2_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A1 | A2)
     '''
     p = validate_inputs(inputs, graph, 'NOR2_X1_ZN')
-    return ((p['A1'] | p['A2'] | p['node_name']) & (~p['A1'] | ~p['node_name'])
-            & (~p['A2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['A2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['node_name']])
 
 
-def NOR2_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NOR2_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NOR2_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A1 | A2)
     '''
     p = validate_inputs(inputs, graph, 'NOR2_X2_ZN')
-    return ((p['A1'] | p['A2'] | p['node_name']) & (~p['A1'] | ~p['node_name'])
-            & (~p['A2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['A2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['node_name']])
 
 
-def NOR2_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NOR2_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NOR2_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A1 | A2)
     '''
     p = validate_inputs(inputs, graph, 'NOR2_X4_ZN')
-    return ((p['A1'] | p['A2'] | p['node_name']) & (~p['A1'] | ~p['node_name'])
-            & (~p['A2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['A2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['node_name']])
 
 
-def NOR3_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NOR3_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NOR3_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 | A2) | A3)
     '''
     p = validate_inputs(inputs, graph, 'NOR3_X1_ZN')
-    return ((~p['A1'] | ~p['node_name']) & (~p['A2'] | ~p['node_name']) &
-            (~p['A3'] | ~p['node_name']) &
-            (p['A1'] | p['A2'] | p['A3'] | p['node_name']))
+    solver.add_clause([-p['A1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['node_name']])
+    solver.add_clause([-p['A3'], -p['node_name']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], p['node_name']])
 
 
-def NOR3_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NOR3_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NOR3_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 | A2) | A3)
     '''
     p = validate_inputs(inputs, graph, 'NOR3_X2_ZN')
-    return ((~p['A1'] | ~p['node_name']) & (~p['A2'] | ~p['node_name']) &
-            (~p['A3'] | ~p['node_name']) &
-            (p['A1'] | p['A2'] | p['A3'] | p['node_name']))
+    solver.add_clause([-p['A1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['node_name']])
+    solver.add_clause([-p['A3'], -p['node_name']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], p['node_name']])
 
 
-def NOR3_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NOR3_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NOR3_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 | A2) | A3)
     '''
     p = validate_inputs(inputs, graph, 'NOR3_X4_ZN')
-    return ((~p['A1'] | ~p['node_name']) & (~p['A2'] | ~p['node_name']) &
-            (~p['A3'] | ~p['node_name']) &
-            (p['A1'] | p['A2'] | p['A3'] | p['node_name']))
+    solver.add_clause([-p['A1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['node_name']])
+    solver.add_clause([-p['A3'], -p['node_name']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], p['node_name']])
 
 
-def NOR4_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NOR4_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NOR4_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((A1 | A2) | A3) | A4)
     '''
     p = validate_inputs(inputs, graph, 'NOR4_X1_ZN')
-    return ((~p['A1'] | ~p['node_name']) & (~p['A2'] | ~p['node_name']) &
-            (~p['A3'] | ~p['node_name']) & (~p['A4'] | ~p['node_name']) &
-            (p['A1'] | p['A2'] | p['A3'] | p['A4'] | p['node_name']))
+    solver.add_clause([-p['A1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['node_name']])
+    solver.add_clause([-p['A3'], -p['node_name']])
+    solver.add_clause([-p['A4'], -p['node_name']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], p['A4'], p['node_name']])
 
 
-def NOR4_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NOR4_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NOR4_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((A1 | A2) | A3) | A4)
     '''
     p = validate_inputs(inputs, graph, 'NOR4_X2_ZN')
-    return ((~p['A1'] | ~p['node_name']) & (~p['A2'] | ~p['node_name']) &
-            (~p['A3'] | ~p['node_name']) & (~p['A4'] | ~p['node_name']) &
-            (p['A1'] | p['A2'] | p['A3'] | p['A4'] | p['node_name']))
+    solver.add_clause([-p['A1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['node_name']])
+    solver.add_clause([-p['A3'], -p['node_name']])
+    solver.add_clause([-p['A4'], -p['node_name']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], p['A4'], p['node_name']])
 
 
-def NOR4_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def NOR4_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' NOR4_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((A1 | A2) | A3) | A4)
     '''
     p = validate_inputs(inputs, graph, 'NOR4_X4_ZN')
-    return ((~p['A1'] | ~p['node_name']) & (~p['A2'] | ~p['node_name']) &
-            (~p['A3'] | ~p['node_name']) & (~p['A4'] | ~p['node_name']) &
-            (p['A1'] | p['A2'] | p['A3'] | p['A4'] | p['node_name']))
+    solver.add_clause([-p['A1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['node_name']])
+    solver.add_clause([-p['A3'], -p['node_name']])
+    solver.add_clause([-p['A4'], -p['node_name']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], p['A4'], p['node_name']])
 
 
-def OAI21_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI21_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI21_X1_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A & (B1 | B2))
     '''
     p = validate_inputs(inputs, graph, 'OAI21_X1_ZN')
-    return ((p['A'] | p['node_name']) & (p['B1'] | p['B2'] | p['node_name']) &
-            (~p['A'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B2'], -p['node_name']])
 
 
-def OAI21_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI21_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI21_X2_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A & (B1 | B2))
     '''
     p = validate_inputs(inputs, graph, 'OAI21_X2_ZN')
-    return ((p['A'] | p['node_name']) & (p['B1'] | p['B2'] | p['node_name']) &
-            (~p['A'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B2'], -p['node_name']])
 
 
-def OAI21_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI21_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI21_X4_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A & (B1 | B2))
     '''
     p = validate_inputs(inputs, graph, 'OAI21_X4_ZN')
-    return ((p['A'] | p['node_name']) & (p['B1'] | p['B2'] | p['node_name']) &
-            (~p['A'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B2'], -p['node_name']])
 
 
-def OAI22_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI22_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI22_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 | A2) & (B1 | B2))
     '''
     p = validate_inputs(inputs, graph, 'OAI22_X1_ZN')
-    return ((p['A1'] | p['A2'] | p['node_name']) &
-            (p['B1'] | p['B2'] | p['node_name']) &
-            (~p['A1'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B2'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['A2'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B2'], -p['node_name']])
 
 
-def OAI22_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI22_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI22_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 | A2) & (B1 | B2))
     '''
     p = validate_inputs(inputs, graph, 'OAI22_X2_ZN')
-    return ((p['A1'] | p['A2'] | p['node_name']) &
-            (p['B1'] | p['B2'] | p['node_name']) &
-            (~p['A1'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B2'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['A2'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B2'], -p['node_name']])
 
 
-def OAI22_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI22_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI22_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !((A1 | A2) & (B1 | B2))
     '''
     p = validate_inputs(inputs, graph, 'OAI22_X4_ZN')
-    return ((p['A1'] | p['A2'] | p['node_name']) &
-            (p['B1'] | p['B2'] | p['node_name']) &
-            (~p['A1'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B2'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['A2'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B2'], -p['node_name']])
 
 
-def OAI33_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI33_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI33_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'B1', 'B2', 'B3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((A1 | A2) | A3) & ((B1 | B2) | B3))
     '''
     p = validate_inputs(inputs, graph, 'OAI33_X1_ZN')
-    return ((p['A1'] | p['A2'] | p['A3'] | p['node_name']) &
-            (p['B1'] | p['B2'] | p['B3'] | p['node_name']) &
-            (~p['A1'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B2'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B3'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B2'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B3'] | ~p['node_name']) &
-            (~p['A3'] | ~p['B1'] | ~p['node_name']) &
-            (~p['A3'] | ~p['B2'] | ~p['node_name']) &
-            (~p['A3'] | ~p['B3'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['A2'], p['A3'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['B3'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B3'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B3'], -p['node_name']])
+    solver.add_clause([-p['A3'], -p['B1'], -p['node_name']])
+    solver.add_clause([-p['A3'], -p['B2'], -p['node_name']])
+    solver.add_clause([-p['A3'], -p['B3'], -p['node_name']])
 
 
-def OAI211_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI211_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI211_X1_ZN gate.
 
     Args:
-        inputs: { 'A', 'B', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((C1 | C2) & A) & B)
     '''
     p = validate_inputs(inputs, graph, 'OAI211_X1_ZN')
-    return ((p['A'] | p['node_name']) & (p['B'] | p['node_name']) &
-            (p['C1'] | p['C2'] | p['node_name']) &
-            (~p['A'] | ~p['B'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([p['B'], p['node_name']])
+    solver.add_clause([p['C1'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['B'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B'], -p['C2'], -p['node_name']])
 
 
-def OAI211_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI211_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI211_X2_ZN gate.
 
     Args:
-        inputs: { 'A', 'B', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((C1 | C2) & A) & B)
     '''
     p = validate_inputs(inputs, graph, 'OAI211_X2_ZN')
-    return ((p['A'] | p['node_name']) & (p['B'] | p['node_name']) &
-            (p['C1'] | p['C2'] | p['node_name']) &
-            (~p['A'] | ~p['B'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([p['B'], p['node_name']])
+    solver.add_clause([p['C1'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['B'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B'], -p['C2'], -p['node_name']])
 
 
-def OAI211_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI211_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI211_X4_ZN gate.
 
     Args:
-        inputs: { 'A', 'B', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((C1 | C2) & A) & B)
     '''
     p = validate_inputs(inputs, graph, 'OAI211_X4_ZN')
-    return ((p['A'] | p['node_name']) & (p['B'] | p['node_name']) &
-            (p['C1'] | p['C2'] | p['node_name']) &
-            (~p['A'] | ~p['B'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([p['B'], p['node_name']])
+    solver.add_clause([p['C1'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['B'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B'], -p['C2'], -p['node_name']])
 
 
-def OAI221_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI221_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI221_X1_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((C1 | C2) & A) & (B1 | B2))
     '''
     p = validate_inputs(inputs, graph, 'OAI221_X1_ZN')
-    return ((p['A'] | p['node_name']) & (p['B1'] | p['B2'] | p['node_name']) &
-            (p['C1'] | p['C2'] | p['node_name']) &
-            (~p['A'] | ~p['B1'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B1'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A'] | ~p['B2'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B2'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([p['C1'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['B1'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B1'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B2'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B2'], -p['C2'], -p['node_name']])
 
 
-def OAI221_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI221_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI221_X2_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((C1 | C2) & A) & (B1 | B2))
     '''
     p = validate_inputs(inputs, graph, 'OAI221_X2_ZN')
-    return ((p['A'] | p['node_name']) & (p['B1'] | p['B2'] | p['node_name']) &
-            (p['C1'] | p['C2'] | p['node_name']) &
-            (~p['A'] | ~p['B1'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B1'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A'] | ~p['B2'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B2'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([p['C1'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['B1'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B1'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B2'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B2'], -p['C2'], -p['node_name']])
 
 
-def OAI221_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI221_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI221_X4_ZN gate.
 
     Args:
-        inputs: { 'A', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(!(!(((C1 | C2) & A) & (B1 | B2))))
     '''
     p = validate_inputs(inputs, graph, 'OAI221_X4_ZN')
-    return ((p['A'] | p['node_name']) & (p['B1'] | p['B2'] | p['node_name']) &
-            (p['C1'] | p['C2'] | p['node_name']) &
-            (~p['A'] | ~p['B1'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B1'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A'] | ~p['B2'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A'] | ~p['B2'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([p['C1'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A'], -p['B1'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B1'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B2'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A'], -p['B2'], -p['C2'], -p['node_name']])
 
 
-def OAI222_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI222_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI222_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((A1 | A2) & (B1 | B2)) & (C1 | C2))
     '''
     p = validate_inputs(inputs, graph, 'OAI222_X1_ZN')
-    return ((p['A1'] | p['A2'] | p['node_name']) &
-            (p['B1'] | p['B2'] | p['node_name']) &
-            (p['C1'] | p['C2'] | p['node_name']) &
-            (~p['A1'] | ~p['B1'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B1'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B2'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B2'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B1'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B1'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B2'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B2'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['A2'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([p['C1'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['B1'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B1'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B2'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B2'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B1'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B1'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B2'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B2'], -p['C2'], -p['node_name']])
 
 
-def OAI222_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI222_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI222_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(((A1 | A2) & (B1 | B2)) & (C1 | C2))
     '''
     p = validate_inputs(inputs, graph, 'OAI222_X2_ZN')
-    return ((p['A1'] | p['A2'] | p['node_name']) &
-            (p['B1'] | p['B2'] | p['node_name']) &
-            (p['C1'] | p['C2'] | p['node_name']) &
-            (~p['A1'] | ~p['B1'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B1'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B2'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B2'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B1'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B1'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B2'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B2'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['A2'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([p['C1'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['B1'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B1'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B2'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B2'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B1'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B1'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B2'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B2'], -p['C2'], -p['node_name']])
 
 
-def OAI222_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OAI222_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OAI222_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'node_name' }
+        inputs: { 'A1', 'A2', 'B1', 'B2', 'C1', 'C2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(!(!(((A1 | A2) & (B1 | B2)) & (C1 | C2))))
     '''
     p = validate_inputs(inputs, graph, 'OAI222_X4_ZN')
-    return ((p['A1'] | p['A2'] | p['node_name']) &
-            (p['B1'] | p['B2'] | p['node_name']) &
-            (p['C1'] | p['C2'] | p['node_name']) &
-            (~p['A1'] | ~p['B1'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B1'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B2'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A1'] | ~p['B2'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B1'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B1'] | ~p['C2'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B2'] | ~p['C1'] | ~p['node_name']) &
-            (~p['A2'] | ~p['B2'] | ~p['C2'] | ~p['node_name']))
+    solver.add_clause([p['A1'], p['A2'], p['node_name']])
+    solver.add_clause([p['B1'], p['B2'], p['node_name']])
+    solver.add_clause([p['C1'], p['C2'], p['node_name']])
+    solver.add_clause([-p['A1'], -p['B1'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B1'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B2'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A1'], -p['B2'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B1'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B1'], -p['C2'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B2'], -p['C1'], -p['node_name']])
+    solver.add_clause([-p['A2'], -p['B2'], -p['C2'], -p['node_name']])
 
 
-def OR2_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OR2_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OR2_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (A1 | A2)
     '''
     p = validate_inputs(inputs, graph, 'OR2_X1_ZN')
-    return ((p['node_name'] | ~p['A1']) & (p['node_name'] | ~p['A2']) &
-            (p['A1'] | p['A2'] | ~p['node_name']))
+    solver.add_clause([p['node_name'], -p['A1']])
+    solver.add_clause([p['node_name'], -p['A2']])
+    solver.add_clause([p['A1'], p['A2'], -p['node_name']])
 
 
-def OR2_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OR2_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OR2_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (A1 | A2)
     '''
     p = validate_inputs(inputs, graph, 'OR2_X2_ZN')
-    return ((p['node_name'] | ~p['A1']) & (p['node_name'] | ~p['A2']) &
-            (p['A1'] | p['A2'] | ~p['node_name']))
+    solver.add_clause([p['node_name'], -p['A1']])
+    solver.add_clause([p['node_name'], -p['A2']])
+    solver.add_clause([p['A1'], p['A2'], -p['node_name']])
 
 
-def OR2_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OR2_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OR2_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'node_name' }
+        inputs: { 'A1', 'A2','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (A1 | A2)
     '''
     p = validate_inputs(inputs, graph, 'OR2_X4_ZN')
-    return ((p['node_name'] | ~p['A1']) & (p['node_name'] | ~p['A2']) &
-            (p['A1'] | p['A2'] | ~p['node_name']))
+    solver.add_clause([p['node_name'], -p['A1']])
+    solver.add_clause([p['node_name'], -p['A2']])
+    solver.add_clause([p['A1'], p['A2'], -p['node_name']])
 
 
-def OR3_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OR3_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OR3_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = ((A1 | A2) | A3)
     '''
     p = validate_inputs(inputs, graph, 'OR3_X1_ZN')
-    return ((p['node_name'] | ~p['A1']) & (p['node_name'] | ~p['A2']) &
-            (p['node_name'] | ~p['A3']) &
-            (p['A1'] | p['A2'] | p['A3'] | ~p['node_name']))
+    solver.add_clause([p['node_name'], -p['A1']])
+    solver.add_clause([p['node_name'], -p['A2']])
+    solver.add_clause([p['node_name'], -p['A3']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], -p['node_name']])
 
 
-def OR3_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OR3_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OR3_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = ((A1 | A2) | A3)
     '''
     p = validate_inputs(inputs, graph, 'OR3_X2_ZN')
-    return ((p['node_name'] | ~p['A1']) & (p['node_name'] | ~p['A2']) &
-            (p['node_name'] | ~p['A3']) &
-            (p['A1'] | p['A2'] | p['A3'] | ~p['node_name']))
+    solver.add_clause([p['node_name'], -p['A1']])
+    solver.add_clause([p['node_name'], -p['A2']])
+    solver.add_clause([p['node_name'], -p['A3']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], -p['node_name']])
 
 
-def OR3_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OR3_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OR3_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = ((A1 | A2) | A3)
     '''
     p = validate_inputs(inputs, graph, 'OR3_X4_ZN')
-    return ((p['node_name'] | ~p['A1']) & (p['node_name'] | ~p['A2']) &
-            (p['node_name'] | ~p['A3']) &
-            (p['A1'] | p['A2'] | p['A3'] | ~p['node_name']))
+    solver.add_clause([p['node_name'], -p['A1']])
+    solver.add_clause([p['node_name'], -p['A2']])
+    solver.add_clause([p['node_name'], -p['A3']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], -p['node_name']])
 
 
-def OR4_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OR4_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OR4_X1_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (((A1 | A2) | A3) | A4)
     '''
     p = validate_inputs(inputs, graph, 'OR4_X1_ZN')
-    return ((p['node_name'] | ~p['A1']) & (p['node_name'] | ~p['A2']) &
-            (p['node_name'] | ~p['A3']) & (p['node_name'] | ~p['A4']) &
-            (p['A1'] | p['A2'] | p['A3'] | p['A4'] | ~p['node_name']))
+    solver.add_clause([p['node_name'], -p['A1']])
+    solver.add_clause([p['node_name'], -p['A2']])
+    solver.add_clause([p['node_name'], -p['A3']])
+    solver.add_clause([p['node_name'], -p['A4']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], p['A4'], -p['node_name']])
 
 
-def OR4_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OR4_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OR4_X2_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (((A1 | A2) | A3) | A4)
     '''
     p = validate_inputs(inputs, graph, 'OR4_X2_ZN')
-    return ((p['node_name'] | ~p['A1']) & (p['node_name'] | ~p['A2']) &
-            (p['node_name'] | ~p['A3']) & (p['node_name'] | ~p['A4']) &
-            (p['A1'] | p['A2'] | p['A3'] | p['A4'] | ~p['node_name']))
+    solver.add_clause([p['node_name'], -p['A1']])
+    solver.add_clause([p['node_name'], -p['A2']])
+    solver.add_clause([p['node_name'], -p['A3']])
+    solver.add_clause([p['node_name'], -p['A4']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], p['A4'], -p['node_name']])
 
 
-def OR4_X4_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def OR4_X4_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' OR4_X4_ZN gate.
 
     Args:
-        inputs: { 'A1', 'A2', 'A3', 'A4', 'node_name' }
+        inputs: { 'A1', 'A2', 'A3', 'A4','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = (((A1 | A2) | A3) | A4)
     '''
     p = validate_inputs(inputs, graph, 'OR4_X4_ZN')
-    return ((p['node_name'] | ~p['A1']) & (p['node_name'] | ~p['A2']) &
-            (p['node_name'] | ~p['A3']) & (p['node_name'] | ~p['A4']) &
-            (p['A1'] | p['A2'] | p['A3'] | p['A4'] | ~p['node_name']))
+    solver.add_clause([p['node_name'], -p['A1']])
+    solver.add_clause([p['node_name'], -p['A2']])
+    solver.add_clause([p['node_name'], -p['A3']])
+    solver.add_clause([p['node_name'], -p['A4']])
+    solver.add_clause([p['A1'], p['A2'], p['A3'], p['A4'], -p['node_name']])
 
 
-def TBUF_X1_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def TBUF_X1_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' TBUF_X1_Z gate.
 
     Args:
-        inputs: { 'A', 'EN', 'node_name' }
+        inputs: { 'A', 'EN','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'TBUF_X1_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def TBUF_X2_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def TBUF_X2_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' TBUF_X2_Z gate.
 
     Args:
-        inputs: { 'A', 'EN', 'node_name' }
+        inputs: { 'A', 'EN','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'TBUF_X2_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def TBUF_X4_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def TBUF_X4_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' TBUF_X4_Z gate.
 
     Args:
-        inputs: { 'A', 'EN', 'node_name' }
+        inputs: { 'A', 'EN','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'TBUF_X4_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def TBUF_X8_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def TBUF_X8_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' TBUF_X8_Z gate.
 
     Args:
-        inputs: { 'A', 'EN', 'node_name' }
+        inputs: { 'A', 'EN','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'TBUF_X8_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def TBUF_X16_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def TBUF_X16_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' TBUF_X16_Z gate.
 
     Args:
-        inputs: { 'A', 'EN', 'node_name' }
+        inputs: { 'A', 'EN','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = A
     '''
     p = validate_inputs(inputs, graph, 'TBUF_X16_Z')
-    return ((p['A'] | ~p['node_name']) & (p['node_name'] | ~p['A']))
+    solver.add_clause([p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A']])
 
 
-def TINV_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def TINV_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' TINV_X1_ZN gate.
 
     Args:
-        inputs: { 'EN', 'L', 'node_name' }
+        inputs: { 'EN', 'L','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !I
     '''
     p = validate_inputs(inputs, graph, 'TINV_X1_ZN')
-    return ((p['L'] | p['node_name']) & (~p['L'] | ~p['node_name']))
+    solver.add_clause([p['L'], p['node_name']])
+    solver.add_clause([-p['L'], -p['node_name']])
 
 
-def XNOR2_X1_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def XNOR2_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' XNOR2_X1_ZN gate.
 
     Args:
-        inputs: { 'A', 'B', 'node_name' }
+        inputs: { 'A', 'B','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A ^ B)
     '''
     p = validate_inputs(inputs, graph, 'XNOR2_X1_ZN')
-    return ((p['A'] | p['B'] | p['node_name']) &
-            (p['A'] | ~p['B'] | ~p['node_name']) &
-            (p['B'] | ~p['A'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A'] | ~p['B']))
+    solver.add_clause([p['A'], p['B'], p['node_name']])
+    solver.add_clause([p['A'], -p['B'], -p['node_name']])
+    solver.add_clause([p['B'], -p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A'], -p['B']])
 
 
-def XNOR2_X2_ZN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def XNOR2_X2_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' XNOR2_X2_ZN gate.
 
     Args:
-        inputs: { 'A', 'B', 'node_name' }
+        inputs: { 'A', 'B','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         ZN = !(A ^ B)
     '''
     p = validate_inputs(inputs, graph, 'XNOR2_X2_ZN')
-    return ((p['A'] | p['B'] | p['node_name']) &
-            (p['A'] | ~p['B'] | ~p['node_name']) &
-            (p['B'] | ~p['A'] | ~p['node_name']) &
-            (p['node_name'] | ~p['A'] | ~p['B']))
+    solver.add_clause([p['A'], p['B'], p['node_name']])
+    solver.add_clause([p['A'], -p['B'], -p['node_name']])
+    solver.add_clause([p['B'], -p['A'], -p['node_name']])
+    solver.add_clause([p['node_name'], -p['A'], -p['B']])
 
 
-def XOR2_X1_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def XOR2_X1_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' XOR2_X1_Z gate.
 
     Args:
-        inputs: { 'A', 'B', 'node_name' }
+        inputs: { 'A', 'B','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = (A ^ B)
     '''
     p = validate_inputs(inputs, graph, 'XOR2_X1_Z')
-    return ((p['A'] | p['B'] | ~p['node_name']) &
-            (p['A'] | p['node_name'] | ~p['B']) &
-            (p['B'] | p['node_name'] | ~p['A']) &
-            (~p['A'] | ~p['B'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['B'], -p['node_name']])
+    solver.add_clause([p['A'], p['node_name'], -p['B']])
+    solver.add_clause([p['B'], p['node_name'], -p['A']])
+    solver.add_clause([-p['A'], -p['B'], -p['node_name']])
 
 
-def XOR2_X2_Z(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def XOR2_X2_Z(inputs: dict, graph: nx.DiGraph, solver):
     ''' XOR2_X2_Z gate.
 
     Args:
-        inputs: { 'A', 'B', 'node_name' }
+        inputs: { 'A', 'B','node_name' }
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
+
     Returns:
         Z = (A ^ B)
     '''
     p = validate_inputs(inputs, graph, 'XOR2_X2_Z')
-    return ((p['A'] | p['B'] | ~p['node_name']) &
-            (p['A'] | p['node_name'] | ~p['B']) &
-            (p['B'] | p['node_name'] | ~p['A']) &
-            (~p['A'] | ~p['B'] | ~p['node_name']))
+    solver.add_clause([p['A'], p['B'], -p['node_name']])
+    solver.add_clause([p['A'], p['node_name'], -p['B']])
+    solver.add_clause([p['B'], p['node_name'], -p['A']])
+    solver.add_clause([-p['A'], -p['B'], -p['node_name']])
 
 
 #                      OTFI SPECIFC CELLS - DO NOT EDIT                        #
-def xnor(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def xnor(inputs: dict, graph: nx.DiGraph, solver):
     """ xnor gate.
 
     Args:
         inputs: {'I1', 'I2', 'node_name'}.
         graph: The networkx graph of the circuit.
+        solver: The SAT solver instance.
 
     Returns:
         ZN = '!(I1 ^ I2)'.
     """
     p = validate_inputs(inputs, graph, 'xnor')
+    solver.add_clause([-p['I1'], -p['I2'], p['node_name']])
+    solver.add_clause([p['I1'], p['I2'], p['node_name']])
+    solver.add_clause([p['I1'], -p['I2'], -p['node_name']])
+    solver.add_clause([-p['I1'], p['I2'], -p['node_name']])
 
-    return ((~p['I1'] | ~p['I2'] | p['node_name']) &
-            (p['I1'] | p['I2'] | p['node_name']) &
-            (p['I1'] | ~p['I2'] | ~p['node_name']) &
-            (~p['I1'] | p['I2'] | ~p['node_name']))
 
-
-def xor(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def xor(inputs: dict, graph: nx.DiGraph, solver):
     """ xor gate.
 
     Args:
@@ -2219,14 +2499,13 @@ def xor(inputs: dict, graph: nx.DiGraph) -> Symbol:
         ZN = '(I1 ^ I2)'.
     """
     p = validate_inputs(inputs, graph, 'xor')
+    solver.add_clause([-p['I1'], -p['I2'], -p['node_name']])
+    solver.add_clause([p['I1'], p['I2'], -p['node_name']])
+    solver.add_clause([p['I1'], -p['I2'], p['node_name']])
+    solver.add_clause([-p['I1'], p['I2'], p['node_name']])
 
-    return ((~p['I1'] | ~p['I2'] | ~p['node_name']) &
-            (p['I1'] | p['I2'] | ~p['node_name']) &
-            (p['I1'] | ~p['I2'] | p['node_name']) &
-            (~p['I1'] | p['I2'] | p['node_name']))
 
-
-def and_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def and_output(inputs: dict, graph: nx.DiGraph, solver):
     """ and gate.
 
     AND gate for the output logic. As this is the last element of the formula
@@ -2241,133 +2520,168 @@ def and_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
     """
     if len(inputs) == 3:
         p = validate_inputs(inputs, graph, 'AND2')
-        return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-                (p['node_name'] | ~p['A1']
-                 | ~p['A2'])) & Symbol(inputs['node_name'].node + '_' +
-                                       inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['node_name'], -p['A1'], -p['A2']])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 4:
         p = validate_inputs(inputs, graph, 'AND3')
-        return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-                (p['A3'] | ~p['node_name']) &
-                (p['node_name'] | ~p['A1'] | ~p['A2']
-                 | ~p['A3'])) & Symbol(inputs['node_name'].node + '_' +
-                                       inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['node_name'], -p['A1'], -p['A2'], -p['A3']])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 5:
         p = validate_inputs(inputs, graph, 'AND4')
-        return ((p['A1'] | ~p['node_name']) & (p['A2'] | ~p['node_name']) &
-                (p['A3'] | ~p['node_name']) & (p['A4'] | ~p['node_name']) &
-                (p['node_name'] | ~p['A1'] | ~p['A2'] | ~p['A3']
-                 | ~p['A4'])) & Symbol(inputs['node_name'].node + '_' +
-                                       inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause(
+            [p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4']])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 6:
         p = validate_inputs(inputs, graph, 'AND5')
-        return (
-            (~p['A1'] | ~p['A2'] | ~p['A3'] | ~p['A4'] | ~p['A5']
-             | p['node_name']) & (p['A1'] | ~p['node_name']) &
-            (p['A2'] | ~p['node_name']) & (p['A3'] | ~p['node_name']) &
-            (p['A4'] | ~p['node_name']) &
-            (p['A5'] | ~p['node_name'])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause(
+            [p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5']])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 7:
         p = validate_inputs(inputs, graph, 'AND6')
-        return (
-            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
-             | p["node_name"]) & (p["A1"] | ~p["node_name"]) &
-            (p["A2"] | ~p["node_name"]) & (p["A3"] | ~p["node_name"]) &
-            (p["A4"] | ~p["node_name"]) & (p["A5"] | ~p["node_name"]) &
-            (p["A6"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6']
+        ])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 8:
         p = validate_inputs(inputs, graph, 'AND7')
-        return (
-            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
-             | ~p["A7"] | p["node_name"]) & (p["A1"] | ~p["node_name"]) &
-            (p["A2"] | ~p["node_name"]) & (p["A3"] | ~p["node_name"]) &
-            (p["A4"] | ~p["node_name"]) & (p["A5"] | ~p["node_name"]) &
-            (p["A6"] | ~p["node_name"]) &
-            (p["A7"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7']
+        ])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 9:
         p = validate_inputs(inputs, graph, 'AND8')
-        return (
-            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
-             | ~p["A7"] | ~p["A8"] | p["node_name"]) &
-            (p["A1"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
-            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
-            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
-            (p["A7"] | ~p["node_name"]) &
-            (p["A8"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8']
+        ])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 10:
         p = validate_inputs(inputs, graph, 'AND9')
-        return (
-            (~p["A1"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
-             | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
-            (p["A1"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
-            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
-            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
-            (p["A7"] | ~p["node_name"]) & (p["A8"] | ~p["node_name"]) &
-            (p["A9"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([p['A9'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8'], -p['A9']
+        ])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 11:
         p = validate_inputs(inputs, graph, 'AND10')
-        return (
-            (~p["A1"] | ~p["A10"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"]
-             | ~p["A6"] | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
-            (p["A1"] | ~p["node_name"]) & (p["A10"] | ~p["node_name"]) &
-            (p["A2"] | ~p["node_name"]) & (p["A3"] | ~p["node_name"]) &
-            (p["A4"] | ~p["node_name"]) & (p["A5"] | ~p["node_name"]) &
-            (p["A6"] | ~p["node_name"]) & (p["A7"] | ~p["node_name"]) &
-            (p["A8"] | ~p["node_name"]) &
-            (p["A9"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                  '_' +
-                                                  inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([p['A9'], -p['node_name']])
+        solver.add_clause([p['A10'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8'], -p['A9'], -p['A10']
+        ])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 16:
         p = validate_inputs(inputs, graph, 'AND15')
-        return (
-            (~p["A1"] | ~p["A10"] | ~p["A11"] | ~p["A12"] | ~p["A13"] |
-             ~p["A14"] | ~p["A15"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"]
-             | ~p["A6"] | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
-            (p["A1"] | ~p["node_name"]) & (p["A10"] | ~p["node_name"]) &
-            (p["A11"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
-            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
-            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
-            (p["A7"] | ~p["node_name"]) & (p["A8"] | ~p["node_name"]) &
-            (p["A9"] | ~p["node_name"]) & (p["A12"] | ~p["node_name"]) &
-            (p["A13"] | ~p["node_name"]) & (p["A14"] | ~p["node_name"]) &
-            (p["A15"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                   '_' +
-                                                   inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([p['A9'], -p['node_name']])
+        solver.add_clause([p['A10'], -p['node_name']])
+        solver.add_clause([p['A11'], -p['node_name']])
+        solver.add_clause([p['A12'], -p['node_name']])
+        solver.add_clause([p['A13'], -p['node_name']])
+        solver.add_clause([p['A14'], -p['node_name']])
+        solver.add_clause([p['A15'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8'], -p['A9'], -p['A10'], -p['A11'],
+            -p['A12'], -p['A13'], -p['A14'], -p['A15']
+        ])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 20:
         p = validate_inputs(inputs, graph, 'AND19')
-        return (
-            (~p["A1"] | ~p["A10"] | ~p["A11"] | ~p["A12"] | ~p["A13"]
-             | ~p["A14"] | ~p["A15"] | ~p["A16"] | ~p["A17"] | ~p["A18"]
-             | ~p["A19"] | ~p["A2"] | ~p["A3"] | ~p["A4"] | ~p["A5"] | ~p["A6"]
-             | ~p["A7"] | ~p["A8"] | ~p["A9"] | p["node_name"]) &
-            (p["A1"] | ~p["node_name"]) & (p["A10"] | ~p["node_name"]) &
-            (p["A11"] | ~p["node_name"]) & (p["A2"] | ~p["node_name"]) &
-            (p["A3"] | ~p["node_name"]) & (p["A4"] | ~p["node_name"]) &
-            (p["A5"] | ~p["node_name"]) & (p["A6"] | ~p["node_name"]) &
-            (p["A7"] | ~p["node_name"]) & (p["A8"] | ~p["node_name"]) &
-            (p["A9"] | ~p["node_name"]) & (p["A12"] | ~p["node_name"]) &
-            (p["A13"] | ~p["node_name"]) & (p["A14"] | ~p["node_name"]) &
-            (p["A16"] | ~p["node_name"]) & (p["A17"] | ~p["node_name"]) &
-            (p["A18"] | ~p["node_name"]) & (p["A19"] | ~p["node_name"]) &
-            (p["A15"] | ~p["node_name"])) & Symbol(inputs['node_name'].node +
-                                                   '_' +
-                                                   inputs['node_name'].out_pin)
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([p['A9'], -p['node_name']])
+        solver.add_clause([p['A10'], -p['node_name']])
+        solver.add_clause([p['A11'], -p['node_name']])
+        solver.add_clause([p['A12'], -p['node_name']])
+        solver.add_clause([p['A13'], -p['node_name']])
+        solver.add_clause([p['A14'], -p['node_name']])
+        solver.add_clause([p['A15'], -p['node_name']])
+        solver.add_clause([p['A16'], -p['node_name']])
+        solver.add_clause([p['A17'], -p['node_name']])
+        solver.add_clause([p['A18'], -p['node_name']])
+        solver.add_clause([p['A19'], -p['node_name']])
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8'], -p['A9'], -p['A10'], -p['A11'],
+            -p['A12'], -p['A13'], -p['A14'], -p['A15'], -p['A16'], -p['A17'],
+            -p['A18'], -p['A19']
+        ])
+        solver.add_clause([p['node_name']])
     else:
         print(len(inputs))
         raise Exception('Missing and gate for output logic.')
 
 
-def or_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def or_output(inputs: dict, graph: nx.DiGraph, solver):
     """ or gate.
 
     OR gate for the output logic.
@@ -2381,78 +2695,111 @@ def or_output(inputs: dict, graph: nx.DiGraph) -> Symbol:
     """
     if len(inputs) == 2:
         p = validate_inputs(inputs, graph, 'OR1')
-        return ((~p["A1"] | p["node_name"]) & (p["A1"] | ~p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([p["A1"], -p["node_name"]])
     elif len(inputs) == 3:
         p = validate_inputs(inputs, graph, 'OR2')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([p["A1"], p["A2"], -p["node_name"]])
     elif len(inputs) == 4:
         p = validate_inputs(inputs, graph, 'OR3')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([p["A1"], p["A2"], p["A3"], -p["node_name"]])
     elif len(inputs) == 5:
         p = validate_inputs(inputs, graph, 'OR4')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
-                (~p["A4"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause(
+            [p["A1"], p["A2"], p["A3"], p["A4"], -p["node_name"]])
     elif len(inputs) == 6:
         p = validate_inputs(inputs, graph, 'OR5')
-        return (
-            (~p["A1"] | p["node_name"]) &
-            (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | ~p["node_name"])
-            & (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
-            (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause(
+            [p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], -p["node_name"]])
     elif len(inputs) == 7:
         p = validate_inputs(inputs, graph, 'OR6')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
-                 | ~p["node_name"]) & (~p["A2"] | p["node_name"]) &
-                (~p["A3"] | p["node_name"]) & (~p["A4"] | p["node_name"]) &
-                (~p["A5"] | p["node_name"]) & (~p["A6"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"],
+            -p["node_name"]
+        ])
     elif len(inputs) == 8:
         p = validate_inputs(inputs, graph, 'OR7')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
-                 | p["A7"] | ~p["node_name"]) & (~p["A2"] | p["node_name"]) &
-                (~p["A3"] | p["node_name"]) & (~p["A4"] | p["node_name"]) &
-                (~p["A5"] | p["node_name"]) & (~p["A6"] | p["node_name"]) &
-                (~p["A7"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([-p["A7"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"], p["A7"],
+            -p["node_name"]
+        ])
     elif len(inputs) == 9:
         p = validate_inputs(inputs, graph, 'OR8')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
-                 | p["A7"] | p["A8"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
-                (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]) &
-                (~p["A6"] | p["node_name"]) & (~p["A7"] | p["node_name"]) &
-                (~p["A8"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([-p["A7"], p["node_name"]])
+        solver.add_clause([-p["A8"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"], p["A7"],
+            p["A8"], -p["node_name"]
+        ])
     elif len(inputs) == 10:
         p = validate_inputs(inputs, graph, 'OR9')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
-                 | p["A7"] | p["A8"] | p["A9"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
-                (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]) &
-                (~p["A6"] | p["node_name"]) & (~p["A7"] | p["node_name"]) &
-                (~p["A8"] | p["node_name"]) & (~p["A9"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([-p["A7"], p["node_name"]])
+        solver.add_clause([-p["A8"], p["node_name"]])
+        solver.add_clause([-p["A9"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"], p["A7"],
+            p["A8"], p["A9"], -p["node_name"]
+        ])
     elif len(inputs) == 11:
         p = validate_inputs(inputs, graph, 'OR10')
-        return ((~p["A1"] | p["node_name"]) &
-                (p["A1"] | p["A2"] | p["A3"] | p["A4"] | p["A5"] | p["A6"]
-                 | p["A7"] | p["A8"] | p["A9"] | p["A10"] | ~p["node_name"]) &
-                (~p["A2"] | p["node_name"]) & (~p["A3"] | p["node_name"]) &
-                (~p["A4"] | p["node_name"]) & (~p["A5"] | p["node_name"]) &
-                (~p["A6"] | p["node_name"]) & (~p["A7"] | p["node_name"]) &
-                (~p["A8"] | p["node_name"]) & (~p["A9"] | p["node_name"]) &
-                (~p["A10"] | p["node_name"]))
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([-p["A7"], p["node_name"]])
+        solver.add_clause([-p["A8"], p["node_name"]])
+        solver.add_clause([-p["A9"], p["node_name"]])
+        solver.add_clause([-p["A10"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"], p["A7"],
+            p["A8"], p["A9"], p["A10"], -p["node_name"]
+        ])
     else:
         raise Exception('Missing or gate for output logic.')
 
 
-def input_formula_Q(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def input_formula_Q(inputs: dict, graph: nx.DiGraph, solver):
     """ Sets a input pin to a predefined (0 or 1) value.
 
     Args:
@@ -2468,14 +2815,16 @@ def input_formula_Q(inputs: dict, graph: nx.DiGraph) -> Symbol:
     if inputs['I1'].node == 'one':
         # Input is connected to 1.
         # Return a one.
-        return (~true | p['node_name']) & (true | ~p['node_name'])
+        solver.add_clause([-one, p['node_name']])
+        solver.add_clause([one, -p['node_name']])
     else:
         # Input ist connected to 0.
         # Return a zero.
-        return (~false | p['node_name']) & (false | ~p['node_name'])
+        solver.add_clause([-zero, p['node_name']])
+        solver.add_clause([zero, -p['node_name']])
 
 
-def input_formula_QN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def input_formula_QN(inputs: dict, graph: nx.DiGraph, solver):
     """ Sets a input pin to a predefined (0 or 1) value.
 
     Args:
@@ -2491,14 +2840,16 @@ def input_formula_QN(inputs: dict, graph: nx.DiGraph) -> Symbol:
     if inputs['I1'].node == 'one':
         # Input is connected to 1.
         # Return a zero.
-        return (~false | p['node_name']) & (false | ~p['node_name'])
+        solver.add_clause([-zero, p['node_name']])
+        solver.add_clause([zero, -p['node_name']])
     else:
         # Input ist connected to 0.
         # Return a one.
-        return (~true | p['node_name']) & (true | ~p['node_name'])
+        solver.add_clause([-one, p['node_name']])
+        solver.add_clause([one, -p['node_name']])
 
 
-def in_node_Q(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def in_node_Q(inputs: dict, graph: nx.DiGraph, solver):
     """ In node Q
 
     Args:
@@ -2509,10 +2860,11 @@ def in_node_Q(inputs: dict, graph: nx.DiGraph) -> Symbol:
         Q = I
     """
     p = validate_inputs(inputs, graph, 'in_node')
-    return (~p['I1'] | p['node_name']) & (p['I1'] | ~p['node_name'])
+    solver.add_clause([-p['I1'], p['node_name']])
+    solver.add_clause([p['I1'], -p['node_name']])
 
 
-def in_node_QN(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def in_node_QN(inputs: dict, graph: nx.DiGraph, solver):
     """ In node QN
 
     Args:
@@ -2523,10 +2875,11 @@ def in_node_QN(inputs: dict, graph: nx.DiGraph) -> Symbol:
         Q = !I
     """
     p = validate_inputs(inputs, graph, 'in_node')
-    return (~p['I1'] | ~p['node_name']) & (p['I1'] | p['node_name'])
+    solver.add_clause([-p['I1'], -p['node_name']])
+    solver.add_clause([p['I1'], p['node_name']])
 
 
-def out_node(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def out_node(inputs: dict, graph: nx.DiGraph, solver):
     """ Out node.
 
     Args:
@@ -2537,10 +2890,11 @@ def out_node(inputs: dict, graph: nx.DiGraph) -> Symbol:
         ZN = D.
     """
     p = validate_inputs(inputs, graph, 'out_node')
-    return (~p['D'] | p['node_name']) & (p['D'] | ~p['node_name'])
+    solver.add_clause([-p['D'], p['node_name']])
+    solver.add_clause([p['D'], -p['node_name']])
 
 
-def output(inputs: dict, graph: nx.DiGraph) -> Symbol:
+def output(inputs: dict, graph: nx.DiGraph, solver):
     """ Out node.
 
     Args:
@@ -2551,7 +2905,8 @@ def output(inputs: dict, graph: nx.DiGraph) -> Symbol:
         ZN = I.
     """
     p = validate_inputs(inputs, graph, 'output')
-    return (~p['I1'] | p['node_name']) & (p['I1'] | ~p['node_name'])
+    solver.add_clause([-p['I1'], p['node_name']])
+    solver.add_clause([p['I1'], -p['node_name']])
 
 
 cell_mapping = {
