@@ -3,14 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from typing import DefaultDict
 
 from sympy import Symbol
-from typing import DefaultDict
 
 import helpers
 from helpers import InputPin
 
 logger = logging.getLogger(__name__)
+
 
 class FormulaBuilder:
     """ Class for converting a graph into a boolean formula.
@@ -73,10 +74,17 @@ class FormulaBuilder:
                         # Assemble the name of the input pin of the current node
                         # and translate the name to an integer value.
                         input_name = in_node + "_" + out_pin
-                        if input_name not in node_int:
-                            node_int[input_name] = node_int_cntr
-                            node_int_cntr += 1
-                        inputs[in_pin] = InputPin(node, node_int[input_name])
+                        in_node_type = self.graph.nodes[in_node]["node"].type
+                        if in_node_type == "null_node":
+                            inputs[in_pin] = InputPin(node, self.cell_lib.zero)
+                        elif in_node_type == "one_node":
+                            inputs[in_pin] = InputPin(node, self.cell_lib.one)
+                        else:
+                            if input_name not in node_int:
+                                node_int[input_name] = node_int_cntr
+                                node_int_cntr += 1
+                            inputs[in_pin] = InputPin(node,
+                                                      node_int[input_name])
 
                     # If there is an input port with input size greater than 1
                     # than we have a predefined input value of one/zero for this
