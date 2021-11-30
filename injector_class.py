@@ -77,15 +77,19 @@ class FiInjector:
                         gate_in_type_current][gate_in_type_faulty]
                     # Update the pin name in the node dict.
                     for pin in faulty_graph.nodes[node]["node"].inputs.keys():
-                        faulty_graph.nodes[node]["node"].inputs[
-                            pin] = in_pin_mapping[faulty_graph.nodes[node]
-                                                  ["node"].inputs[pin]]
+                        faulty_graph.nodes[node]["node"].inputs[pin][
+                            0] = in_pin_mapping[faulty_graph.nodes[node]
+                                                ["node"].inputs[pin][0]]
                     # Update pin name in the edge.
                     for edge in faulty_graph.in_edges(node):
-                        faulty_graph.get_edge_data(
-                            edge[0], edge[1])["in_pin"] = in_pin_mapping[
-                                faulty_graph.get_edge_data(edge[0],
-                                                           edge[1])["in_pin"]]
+                        if faulty_graph.get_edge_data(
+                                edge[0],
+                                edge[1])["in_pin"][0] in in_pin_mapping:
+                            faulty_graph.get_edge_data(
+                                edge[0],
+                                edge[1])["in_pin"][0] = in_pin_mapping[
+                                    faulty_graph.get_edge_data(
+                                        edge[0], edge[1])["in_pin"][0]]
                 gate_out_type_current = self.cell_lib.gate_out_type[
                     current_type]
                 gate_out_type_faulty = self.cell_lib.gate_out_type[fault_type]
@@ -160,13 +164,13 @@ class FiInjector:
                                                  node,
                                                  name="one_wire",
                                                  out_pin="O",
-                                                 in_pin="I1")
+                                                 in_pin=["I1"])
                 else:
                     diff_graph_in_logic.add_edge("null",
                                                  node,
                                                  name="null_wire",
                                                  out_pin="O",
-                                                 in_pin="I1")
+                                                 in_pin=["I1"])
         return diff_graph_in_logic
 
     def _add_xor_xnor(self, diff_graph_out_logic, diff_graph, values, alert):
@@ -213,7 +217,7 @@ class FiInjector:
                         Node(name=node_name,
                              parent_name=node_name,
                              type=node_type,
-                             inputs={0: "I"},
+                             inputs={0: ["I"]},
                              outputs={0: "O"},
                              stage="out_stage",
                              node_color="purple")
@@ -227,20 +231,20 @@ class FiInjector:
                                                   node_name,
                                                   name="one_wire",
                                                   out_pin="O",
-                                                  in_pin="I1")
+                                                  in_pin=["I1"])
                 else:
                     diff_graph_out_logic.add_edge("null",
                                                   node_name,
                                                   name="null_wire",
                                                   out_pin="O",
-                                                  in_pin="I1")
+                                                  in_pin=["I1"])
                 diff_graph_out_logic.add_edge(node,
                                               node_name,
                                               name="node_wire",
                                               out_pin="O",
-                                              in_pin="I2")
+                                              in_pin=["I2"])
                 diff_graph_out_logic.nodes[node]["node"].outputs = {0: "O"}
-                diff_graph_out_logic.nodes[node]["node"].inputs = {0: "I"}
+                diff_graph_out_logic.nodes[node]["node"].inputs = {0: ["I"]}
         return out_nodes_added, out_nodes_faulty_added
 
     def _connect_outputs(self, diff_graph_out_logic, out_nodes, out_logic):
@@ -254,7 +258,7 @@ class FiInjector:
                 Node(name=out_name,
                      parent_name=out_name,
                      type=out_logic,
-                     inputs={0: "I"},
+                     inputs={0: ["I"]},
                      outputs={0: "O"},
                      stage="",
                      node_color="purple")
@@ -267,7 +271,7 @@ class FiInjector:
                                           out_name,
                                           name=out_logic + "_wire",
                                           out_pin="O",
-                                          in_pin="A" + str(cntr))
+                                          in_pin=["A" + str(cntr)])
             cntr += 1
 
         return out_name
@@ -322,7 +326,7 @@ class FiInjector:
                                       and_output,
                                       name="and_wire",
                                       out_pin="O",
-                                      in_pin="A" + str(num_in_edges))
+                                      in_pin=["A" + str(num_in_edges)])
 
         return diff_graph_out_logic
 

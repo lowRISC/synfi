@@ -67,24 +67,28 @@ class FormulaBuilder:
                     # other edge.
                     for edge in self.graph.in_edges(node):
                         in_node = edge[0]
-                        in_pin = self.graph.get_edge_data(edge[0],
-                                                          edge[1])["in_pin"]
+                        in_pins = self.graph.get_edge_data(edge[0],
+                                                           edge[1])["in_pin"]
                         out_pin = self.graph.get_edge_data(edge[0],
                                                            edge[1])["out_pin"]
-                        # Assemble the name of the input pin of the current node
-                        # and translate the name to an integer value.
-                        input_name = in_node + "_" + out_pin
-                        in_node_type = self.graph.nodes[in_node]["node"].type
-                        if in_node_type == "null_node":
-                            inputs[in_pin] = InputPin(node, self.cell_lib.zero)
-                        elif in_node_type == "one_node":
-                            inputs[in_pin] = InputPin(node, self.cell_lib.one)
-                        else:
-                            if input_name not in node_int:
-                                node_int[input_name] = node_int_cntr
-                                node_int_cntr += 1
-                            inputs[in_pin] = InputPin(node,
-                                                      node_int[input_name])
+                        for in_pin in in_pins:
+                            # Assemble the name of the input pin of the current node
+                            # and translate the name to an integer value.
+                            input_name = in_node + "_" + out_pin
+                            in_node_type = self.graph.nodes[in_node][
+                                "node"].type
+                            if in_node_type == "null_node":
+                                inputs[in_pin] = InputPin(
+                                    node, self.cell_lib.zero)
+                            elif in_node_type == "one_node":
+                                inputs[in_pin] = InputPin(
+                                    node, self.cell_lib.one)
+                            else:
+                                if input_name not in node_int:
+                                    node_int[input_name] = node_int_cntr
+                                    node_int_cntr += 1
+                                inputs[in_pin] = InputPin(
+                                    node, node_int[input_name])
 
                     # If there is an input port with input size greater than 1
                     # than we have a predefined input value of one/zero for this

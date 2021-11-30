@@ -92,22 +92,73 @@ def parse_nodes(module: dict) -> dict:
 
     for name, node in module["cells"].items():
         node_type = node["type"]
-        nodes_in = {}
-        nodes_out = {}
+        
+        # Get max number of connections for a port.
+        max_num_connections = 0
+        for port, connections in node["connections"].items():
+            if len(connections) > max_num_connections: max_num_connections = len(connections)
 
-        for port, connection in node["connections"].items():
-            if (node["port_directions"][port] == "input"):
-                nodes_in[connection[0]] = port
-                in_wires[connection[0]].append(name)
-            else:
-                nodes_out[connection[0]] = port
-                out_wires[connection[0]] = name
-
-        nodes[name] = Node(name=name,
+        if max_num_connections == 1:
+            # All ports only have a single connection.
+            nodes_in = DefaultDict(list)
+            nodes_out = {}
+            for port, connection in node["connections"].items():
+                if (node["port_directions"][port] == "input"):
+                    nodes_in[connection[0]].append(port)
+                    in_wires[connection[0]].append(name)
+                else:
+                    nodes_out[connection[0]] = port
+                    out_wires[connection[0]] = name
+            # Add the node to the dict.
+            nodes[name] = Node(name=name,
                            parent_name=name,
                            type=node_type,
                            inputs=nodes_in,
                            outputs=nodes_out,
+                           stage="",
+                           node_color="black")
+        else:
+            # Some ports have multiple connections. Split the node and connect 
+            # each port.
+            node_ports = {}
+            for num in range(0, max_num_connections):
+                node_name = name + "_" + str(num)
+                node_ports[node_name] = {}
+                node_ports[node_name]["nodes_in"] = DefaultDict(list)
+                node_ports[node_name]["nodes_out"] = {}
+            
+            for port, connections in node["connections"].items():
+                num_connections = len(connections)
+                if (node["port_directions"][port] == "input"):
+                    for idx, con in enumerate(connections):
+                        if num_connections == max_num_connections:
+                            node_name = name + "_" + str(idx)
+                            node_ports[node_name]["nodes_in"][con].append(port)
+                            in_wires[con].append(node_name)
+                        else:
+                            for num in range(0, max_num_connections):
+                                node_name = name + "_" + str(num)
+                                node_ports[node_name]["nodes_in"][con].append(port)
+                                in_wires[con].append(node_name)
+                else:
+                    for idx, con in enumerate(connections):
+                        if num_connections == max_num_connections:
+                            node_name = name + "_" + str(idx)
+                            node_ports[node_name]["nodes_out"][con] = port
+                            out_wires[con] = node_name
+                        else:
+                            for num in range(0, max_num_connections):
+                                node_name = name + "_" + str(num)
+                                node_ports[node_name]["nodes_out"][con] = port
+                                out_wires[con] = node_name
+            # Add the nodes to the node dict.
+            for num in range(0, max_num_connections):
+                node_name = name + "_" + str(num)
+                nodes[node_name] = Node(name=node_name,
+                           parent_name=node_name,
+                           type=node_type,
+                           inputs=node_ports[node_name]["nodes_in"],
+                           outputs=node_ports[node_name]["nodes_out"],
                            stage="",
                            node_color="black")
 
@@ -168,12 +219,12 @@ def add_pins(ports: dict, nodes: dict, in_wires: dict,
                 in_wires[wire_name].append(port_name)
                 inp_pin = pin
                 outp_pin = wire_name
-                port_in_pin[wire_name] = "I1"
+                port_in_pin[wire_name] = ["I1"]
             # Add pin to node dict.
             nodes[pin_name] = Node(name=pin_name,
                                    parent_name=pin_name,
                                    type=port.type,
-                                   inputs={inp_pin: "I1"},
+                                   inputs={inp_pin: ["I1"]},
                                    outputs={outp_pin: "O"},
                                    stage="",
                                    node_color="black")
