@@ -35,7 +35,7 @@ class InputPin:
 
     """
     node: str
-    out_pin: str
+    name: int
 
 
 @dataclass

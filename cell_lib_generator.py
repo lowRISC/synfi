@@ -58,7 +58,7 @@ class CellFunction:
     """
     name: str
     function: str
-    function_cnf: str
+    clauses: list
     output: str
     inputs: str
 
@@ -243,6 +243,29 @@ def parse_cells(cell_lib: dict, cell_types: list) -> list:
 
     return cells
 
+def create_clauses(formula: str) -> str:
+    """ Convert the formula string to clauses.
+
+    This function converts the formula string to clauses needed by the SAT
+    solver. For this, characters in the string are replaced.
+
+    Args:
+        formula: The formula as a string.
+
+    Returns:
+        The clauses.
+
+    """
+    clauses_ret = []
+    clause_list = formula.split("&")
+    for clause in clause_list:
+        clause = clause.replace("|", ",")
+        clause = clause.replace("~", "-")
+        clause = clause.replace("(", "[")
+        clause = clause.replace(")", "]")
+        clauses_ret.append(clause)
+
+    return clauses_ret
 
 def build_cell_functions(cells: list) -> list:
     """ Creates the cell functions.
@@ -251,7 +274,7 @@ def build_cell_functions(cells: list) -> list:
     formula.
 
     Args:
-        cells: The list of cells
+        cells: The list of cells.
 
     Returns:
         The cell functions list.
@@ -269,6 +292,7 @@ def build_cell_functions(cells: list) -> list:
             for in_pin in cell.inputs:
                 formula_cnf = formula_cnf.replace(in_pin, f"p['{in_pin}']")
             formula_cnf = formula_cnf.replace(output.name, "p['node_name']")
+            clauses = create_clauses(formula_cnf)
             # Transform the inputs list to a string.
             inputs_str = "{ " + (", ".join(
                 [str("'" + input + "'")
@@ -276,7 +300,7 @@ def build_cell_functions(cells: list) -> list:
             # Create the cell function.
             cell_function = CellFunction(name=cell_name,
                                          function=output.formula,
-                                         function_cnf=formula_cnf,
+                                         clauses=clauses,
                                          output=output.name,
                                          inputs=inputs_str)
             cell_functions.append(cell_function)

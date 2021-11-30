@@ -4,7 +4,8 @@
 
 import logging
 
-from sympy import Symbol, true
+from sympy import Symbol
+from typing import DefaultDict
 
 import helpers
 from helpers import InputPin
@@ -17,7 +18,7 @@ class FormulaBuilder:
     This class provides functionality to a networkx graph into a boolean formula
     in CNF.
     """
-    def __init__(self, graph, cell_lib):
+    def __init__(self, graph, cell_lib, solver):
         """ Inits the FormulaBuilder class
 
         Args:
@@ -26,6 +27,7 @@ class FormulaBuilder:
         """
         self.graph = graph
         self.cell_lib = cell_lib
+        self.solver = solver
 
     def transform_graph(self) -> Symbol:
         """ Transforms the graph into a boolean formula in CNF.
@@ -34,10 +36,12 @@ class FormulaBuilder:
         differential graph into a boolean formula.
 
         Returns:
-            The boolean formula in CNF.
+            The SAT solver with the clauses.
         """
-
-        sub_expressions = []
+        node_int = DefaultDict()
+        # The SAT solver uses integers as variable names. A logical 1=1, a
+        # logical 0=2. The next gate uses 3 as a variable name.
+        node_int_cntr = 3
         for node, node_attribute in self.graph.nodes(data=True):
             node_type = node_attribute["node"].type
             filter_types = {"null_node", "one_node"}
@@ -47,8 +51,15 @@ class FormulaBuilder:
                 # as we could have multiple output pins for a node.
                 for wire, out_pin in node_attribute["node"].outputs.items():
                     inputs = {}
-                    inputs["node_name"] = InputPin(node, out_pin)
                     node_type_out = node_type + "_" + out_pin
+                    # Assemble the name of the current node and translate the
+                    # name to an integer value needed by the SAT solver.
+                    node_name = node + "_" + out_pin
+                    if node_name not in node_int:
+                        node_int[node_name] = node_int_cntr
+                        node_int_cntr += 1
+                    inputs["node_name"] = InputPin(node, node_int[node_name])
+
                     # Get the input pins of the current node. As an input pin
                     # can be connected to a node having multiple outputs (e.g.
                     # Q or QN), we have to also store the output pin of the
@@ -59,20 +70,25 @@ class FormulaBuilder:
                                                           edge[1])["in_pin"]
                         out_pin = self.graph.get_edge_data(edge[0],
                                                            edge[1])["out_pin"]
-                        inputs[in_pin] = InputPin(in_node, out_pin)
+                        # Assemble the name of the input pin of the current node
+                        # and translate the name to an integer value.
+                        input_name = in_node + "_" + out_pin
+                        if input_name not in node_int:
+                            node_int[input_name] = node_int_cntr
+                            node_int_cntr += 1
+                        inputs[in_pin] = InputPin(node, node_int[input_name])
 
                     # If there is an input port with input size greater than 1
                     # than we have a predefined input value of one/zero for this
                     # input. Else we ignore input ports.
                     if node_type == "input" and len(inputs) > 1:
-                        sub_expressions.append(
-                            self.cell_lib.cell_mapping[node_type_out](
-                                inputs, self.graph))
+                        self.cell_lib.cell_mapping[node_type_out](inputs,
+                                                                  self.graph,
+                                                                  self.solver)
                     elif node_type != "input":
                         if node_type_out in self.cell_lib.cell_mapping:
-                            sub_expressions.append(
-                                self.cell_lib.cell_mapping[node_type_out](
-                                    inputs, self.graph))
+                            self.cell_lib.cell_mapping[node_type_out](
+                                inputs, self.graph, self.solver)
                         else:
                             # Report missing gate type for gates with inputs.
                             if self.graph.in_edges(node):
@@ -80,11 +96,4 @@ class FormulaBuilder:
                                     f"Err: Gate type {node_type_out} not found."
                                 )
 
-        # Create the final boolean formula by ANDing all sub expressions.
-        cnf = true
-
-        for sub_expression in sub_expressions:
-            if sub_expression:
-                cnf &= sub_expression
-
-        return cnf
+        return self.solver
