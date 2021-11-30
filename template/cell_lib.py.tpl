@@ -175,12 +175,7 @@ def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
     if expected_inputs <= inputs.keys():
         input_symbols = {}
         for input_pin, input in inputs.items():
-            if graph.nodes[input.node]['node'].type == 'null_node':
-                input_symbols[input_pin] = zero
-            elif graph.nodes[input.node]['node'].type == 'one_node':
-                input_symbols[input_pin] = one
-            else:
-                input_symbols[input_pin] = input.name
+            input_symbols[input_pin] = input.name
 
         return input_symbols
     else:
