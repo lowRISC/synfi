@@ -55,8 +55,10 @@ class FiInjector:
             The faulty target graph.
         """
         faulty_graph = copy.deepcopy(self.target_graph)
-        for node_target, fault_type in fault_location:
-            stage = self.fault_model["fault_locations"][node_target]
+        for fl in fault_location:
+            stage = fl.stage
+            node_target = fl.location
+            fault_type = fl.mapping
             # Find the nodes in the target graph which are replaced with the
             # faulty nodes.
             nodes = [
