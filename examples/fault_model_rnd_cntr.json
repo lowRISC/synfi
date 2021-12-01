@@ -83,9 +83,9 @@
             "OAI222_X1": ["AOI222_X1"]
         },
         "fault_locations": {
-            "$abc$16618$auto$blifparse.cc:381:parse_blif$16802": "stage_1",
-            "$abc$16618$auto$blifparse.cc:381:parse_blif$16815": "stage_1",
-            "$abc$16618$auto$blifparse.cc:381:parse_blif$16775": "stage_3"
+            "$abc$16618$auto$blifparse.cc:381:parse_blif$16802": ["stage_1"],
+            "$abc$16618$auto$blifparse.cc:381:parse_blif$16815": ["stage_1"],
+            "$abc$16618$auto$blifparse.cc:381:parse_blif$16775": ["stage_3"]
         },
         "output_values": {
           "key_expand_round_o(4)_75": 1,

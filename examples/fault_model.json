@@ -25,9 +25,9 @@
             "AOI221_X1": ["OAI221_X1"]
         },
         "fault_locations": {
-            "$abc$16637$auto$blifparse.cc:381:parse_blif$16836": "stage_1",
-            "$abc$16637$auto$blifparse.cc:381:parse_blif$16821": "stage_2",
-            "$abc$16637$auto$blifparse.cc:381:parse_blif$16820": "stage_2"
+            "$abc$16637$auto$blifparse.cc:381:parse_blif$16836": ["stage_1"],
+            "$abc$16637$auto$blifparse.cc:381:parse_blif$16821": ["stage_2"],
+            "$abc$16637$auto$blifparse.cc:381:parse_blif$16820": ["stage_2"]
         },
         "output_values": {
           "key_expand_round_o(4)_75": 1

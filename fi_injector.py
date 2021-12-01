@@ -13,6 +13,7 @@ import pickle
 import sys
 import time
 import types
+from dataclasses import dataclass
 from typing import DefaultDict
 
 import networkx as nx
@@ -34,6 +35,18 @@ Typical usage:
 """
 
 logger = logging.getLogger()
+
+
+@dataclass
+class FaultLocation:
+    """ Fault Locations.
+
+    Contains the location, the stage, and the mapping of a single fault.
+
+    """
+    location: str
+    stage: str
+    mapping: str
 
 
 def parse_arguments(argv):
@@ -128,8 +141,12 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict) -> list:
         A list containing all fault locations and the corresponding gates.
     """
     simultaneous_faults = fi_model["simultaneous_faults"]
-    fault_locations = fi_model["fault_locations"]
     fault_mapping = fi_model["node_fault_mapping"]
+    fault_locations = []
+    for location, stages in fi_model["fault_locations"].items():
+        for stage in stages:
+            fault_locations.append(
+                FaultLocation(location=location, stage=stage, mapping=""))
 
     fault_combinations = []
     # Receive all possible fault location combinations using itertools.
@@ -138,12 +155,15 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict) -> list:
         faulty_nodes_mapping = []
         # For each fault location combination, loop over all fault mappings.
         for fault_node in faulty_nodes:
-            if fault_node in graph.nodes:
-                gate_type = graph.nodes[fault_node]["node"].type
+            if fault_node.location in graph.nodes:
+                gate_type = graph.nodes[fault_node.location]["node"].type
                 gate_mapping = fault_mapping[gate_type]
                 faulty_node_mapping = []
                 for gate in gate_mapping:
-                    faulty_node_mapping.append((fault_node, gate))
+                    faulty_node_mapping.append(
+                        FaultLocation(location=fault_node.location,
+                                      stage=fault_node.stage,
+                                      mapping=gate))
                 faulty_nodes_mapping.append(faulty_node_mapping)
             else:
                 logger.error(f"Err: Node {fault_node} not found in graph.")
@@ -389,7 +409,7 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
             if out_node_type == "output":
                 for edge in graph.in_edges(node_out_name):
                     graph[edge[0]][edge[1]]["in_pin"] = ["I1"]
-    
+
     return graph
 
 
@@ -587,7 +607,7 @@ def gen_fault_locations(fi_model: dict, graph: nx.DiGraph,
     Returns:
         The generated fault locations.
     """
-    fault_locations = {}
+    fault_locations = DefaultDict(list)
 
     filter_types = {
         "input", "output", "in_node", "out_node", "null_node", "one_node"
@@ -596,14 +616,13 @@ def gen_fault_locations(fi_model: dict, graph: nx.DiGraph,
 
     exclude_cells = []
     if "exclude_auto_fl" in fi_model:
-        print("in exclude cells")
         exclude_cells = fi_model["exclude_auto_fl"]
 
     for node, attribute in graph.nodes(data=True):
         if attribute["node"].type not in filter_types and attribute[
                 "node"].parent_name not in exclude_cells:
-            fault_locations[
-                attribute["node"].parent_name] = attribute["node"].stage
+            fault_locations[attribute["node"].parent_name].append(
+                attribute["node"].stage)
 
     return fault_locations
 
