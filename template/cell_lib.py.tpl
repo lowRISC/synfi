@@ -546,7 +546,7 @@ def input_formula_Q(inputs: dict, graph: nx.DiGraph, solver):
 
     p = validate_inputs(inputs, graph, 'input_formula')
 
-    if inputs['I1'].node == 'one':
+    if 'one' in inputs['I1'].node:
         # Input is connected to 1.
         # Return a one.
         solver.add_clause([-one, p['node_name']])
@@ -571,7 +571,7 @@ def input_formula_QN(inputs: dict, graph: nx.DiGraph, solver):
 
     p = validate_inputs(inputs, graph, 'input_formula')
 
-    if inputs['I1'].node == 'one':
+    if 'one' in inputs['I1'].node:
         # Input is connected to 1.
         # Return a zero.
         solver.add_clause([-zero, p['node_name']])
