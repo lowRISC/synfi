@@ -175,79 +175,94 @@ class FiInjector:
                                                  in_pin=["I1"])
         return diff_graph_in_logic
 
-    def _add_xor_xnor(self, diff_graph_out_logic, diff_graph, values, alert):
-        """ Add the XORs and XNORs for the output logic to the graph.
+    def _add_xor_xnor_nodes(self, diff_graph_out_logic, node, value, node_name,
+                            node_type):
+        """ Add the xor/xnor node.
+
+        In this function, the actual node for the comparison is added to the
+        graph.
 
         Args:
-            diff_graph_out_logic: The differential graph with the output logic.
-            diff_graph: The differential graph
-            values: The values for the selected nodes.
-            alert: The node is an alert node.
+            diff_graph_out_logic: The differential graph with the connected output.
+            node: The current node.
+            value: The output value set in the fault model.
+            node_name: The name of the new node.
+            node_type: The type of the new node.
+
+        """
+        diff_graph_out_logic.add_node(
+            node_name, **{
+                "node":
+                Node(name=node_name,
+                     parent_name=node_name,
+                     type=node_type,
+                     inputs={0: ["I"]},
+                     outputs={0: "O"},
+                     stage="out_stage",
+                     node_color="purple")
+            })
+        null_zero = "null"
+        if value == 1: null_zero = "one"
+        diff_graph_out_logic.add_edge(null_zero,
+                                      node_name,
+                                      name=null_zero + "_wire",
+                                      out_pin="O",
+                                      in_pin=["I1"])
+        diff_graph_out_logic.add_edge(node,
+                                      node_name,
+                                      name="node_wire",
+                                      out_pin="O",
+                                      in_pin=["I2"])
+        diff_graph_out_logic.nodes[node]["node"].outputs = {0: "O"}
+        diff_graph_out_logic.nodes[node]["node"].inputs = {0: ["I"]}
+
+    def _add_output(self, diff_graph_out_logic, diff_graph, values, faulty,
+                    alert, exp_fault):
+        """ Add the output logic.
+
+        In this function, the comparison with the output value, the alert value
+        or the expected fault value is done. Depending on the mode of comparison
+        we use XOR or XNOR functions to do this comparison.
+
+        Args:
+            diff_graph_out_logic: The differential graph with the connected output.
+            diff_graph: The differential graph.
+            values: The output values set in the fault model.
+            faulty: Is the node a faulty node?
+            alert: Is the node an alert node?
+            exp_fault: Is the node an expected fault value node?
 
         Returns:
-            The differential graph with the XORs and XNORs.
+            A list with the added nodes.
         """
         out_nodes_added = []
-        out_nodes_faulty_added = []
-
         for node_target, value in values.items():
-            # Add XNOR/XOR node for each output node and connect with this port.
             nodes = [
                 n for n, d in diff_graph.nodes(data=True)
                 if (d["node"].parent_name == node_target
                     and d["node"].type == "output")
             ]
             for node in nodes:
-                if "_faulty" in node:
-                    if alert:
-                        # For the alert signals, use XNORs.
-                        node_name = node + "_xnor_alert"
-                        node_type = "xnor"
-                    else:
-                        # For outputs use XORs.
+                if faulty:
+                    if "_faulty" in node:
                         node_name = node + "_xor"
                         node_type = "xor"
+                        if alert or exp_fault:
+                            node_name = node + "_xnor_alert_exp"
+                        if alert or exp_fault: node_type = "xnor"
+                        out_nodes_added.append(node_name)
+                        self._add_xor_xnor_nodes(diff_graph_out_logic, node,
+                                                 value, node_name, node_type)
                 else:
-                    if alert:
-                        node_name = node + "_xnor_alert"
-                    else:
+                    if "_faulty" not in node:
                         node_name = node + "_xnor"
-                    node_type = "xnor"
-                diff_graph_out_logic.add_node(
-                    node_name, **{
-                        "node":
-                        Node(name=node_name,
-                             parent_name=node_name,
-                             type=node_type,
-                             inputs={0: ["I"]},
-                             outputs={0: "O"},
-                             stage="out_stage",
-                             node_color="purple")
-                    })
-                if ("_faulty" in node) and (not alert):
-                    out_nodes_faulty_added.append(node_name)
-                else:
-                    out_nodes_added.append(node_name)
-                if value == 1:
-                    diff_graph_out_logic.add_edge("one",
-                                                  node_name,
-                                                  name="one_wire",
-                                                  out_pin="O",
-                                                  in_pin=["I1"])
-                else:
-                    diff_graph_out_logic.add_edge("null",
-                                                  node_name,
-                                                  name="null_wire",
-                                                  out_pin="O",
-                                                  in_pin=["I1"])
-                diff_graph_out_logic.add_edge(node,
-                                              node_name,
-                                              name="node_wire",
-                                              out_pin="O",
-                                              in_pin=["I2"])
-                diff_graph_out_logic.nodes[node]["node"].outputs = {0: "O"}
-                diff_graph_out_logic.nodes[node]["node"].inputs = {0: ["I"]}
-        return out_nodes_added, out_nodes_faulty_added
+                        if alert: node_name = node + "_xnor_alert"
+                        node_type = "xnor"
+                        out_nodes_added.append(node_name)
+                        self._add_xor_xnor_nodes(diff_graph_out_logic, node,
+                                                 value, node_name, node_type)
+
+        return out_nodes_added
 
     def _connect_outputs(self, diff_graph_out_logic, out_nodes, out_logic):
         # Flatten the list.
@@ -300,35 +315,50 @@ class FiInjector:
         diff_graph_out_logic = copy.deepcopy(diff_graph)
         output_values = self.fault_model["output_values"]
         alert_values = self.fault_model["alert_values"]
-        out_nodes_added = []
-        out_nodes_faulty_added = []
-        # Add the output logic for the output values.
-        out_nodes = self._add_xor_xnor(diff_graph_out_logic, diff_graph,
-                                       output_values, False)
-        out_nodes_added.append(out_nodes[0])
-        out_nodes_faulty_added.append(out_nodes[1])
-        # Add the output logic for the alert values.
-        out_nodes = self._add_xor_xnor(diff_graph_out_logic, diff_graph,
-                                       alert_values, True)
-        out_nodes_added.append(out_nodes[0])
-        out_nodes_faulty_added.append(out_nodes[1])
+        fault_values = self.fault_model["output_fault_values"]
+        out_and_nodes = []
+        out_or_nodes = []
+        # Add the output logic for the non-faulty output values.
+        out_and_nodes.append(
+            self._add_output(diff_graph_out_logic, diff_graph, output_values,
+                             False, False, False))
+        # Add the output logic for the faulty output values. If there are
+        # expected fault values, connect them with an AND, else with an OR.
+        if not fault_values:
+            out_or_nodes.append(
+                self._add_output(diff_graph_out_logic, diff_graph,
+                                 output_values, True, False, False))
+        else:
+            out_and_nodes.append(
+                self._add_output(diff_graph_out_logic, diff_graph,
+                                 fault_values, True, False, True))
+        if alert_values:
+            # Add the output logic for the non-faulty output values.
+            out_and_nodes.append(
+                self._add_output(diff_graph_out_logic, diff_graph,
+                                 alert_values, False, True, False))
+            # Add the output logic for the faulty output values.
+            out_and_nodes.append(
+                self._add_output(diff_graph_out_logic, diff_graph,
+                                 alert_values, True, True, False))
 
-        # OR all faulty XORs.
-        or_output = self._connect_outputs(diff_graph_out_logic,
-                                          out_nodes_faulty_added, "or")
-        # AND all output nodes (non-faulty and alert).
-        and_output = self._connect_outputs(diff_graph_out_logic,
-                                           out_nodes_added, "and")
+        # AND all output nodes (non-faulty, alert, expected fault values).
+        and_output = self._connect_outputs(diff_graph_out_logic, out_and_nodes,
+                                           "and")
 
-        # Connect the output of the OR logic with the AND output logic.
-        num_in_edges = 1
-        for edge in diff_graph_out_logic.in_edges(and_output):
-            num_in_edges += 1
-        diff_graph_out_logic.add_edge(or_output,
-                                      and_output,
-                                      name="and_wire",
-                                      out_pin="O",
-                                      in_pin=["A" + str(num_in_edges)])
+        if not fault_values:
+            # OR all faulty output nodes.
+            or_output = self._connect_outputs(diff_graph_out_logic,
+                                              out_or_nodes, "or")
+            # Connect the output of the OR logic with the AND output logic.
+            num_in_edges = 1
+            for edge in diff_graph_out_logic.in_edges(and_output):
+                num_in_edges += 1
+            diff_graph_out_logic.add_edge(or_output,
+                                          and_output,
+                                          name="and_wire",
+                                          out_pin="O",
+                                          in_pin=["A" + str(num_in_edges)])
 
         return diff_graph_out_logic
 
