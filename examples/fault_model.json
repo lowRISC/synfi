@@ -38,6 +38,10 @@
         "alert_values": 
         {
             "rnd_ctr_err_sum(1)": 0
+        },
+        "output_fault_values": 
+        {
+            
         }
       }
     }

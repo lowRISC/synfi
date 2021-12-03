@@ -106,6 +106,10 @@
         "alert_values": 
         {
             "$abc$16618$auto$blifparse.cc:381:parse_blif$16775": 0
+        },
+        "output_fault_values": 
+        {
+            
         }
       }
     }
