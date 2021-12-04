@@ -193,8 +193,8 @@ def get_registers(graph: nx.DiGraph, cell_lib: types.ModuleType) -> list:
 
 
 def extract_graph_between_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
-                                stage: str,
-                                cell_lib: types.ModuleType) -> nx.DiGraph:
+                                stage: str, cell_lib: types.ModuleType,
+                                fi_model: dict) -> nx.DiGraph:
     """ Extract the subgraph between two nodes.
 
     Args:
@@ -203,6 +203,7 @@ def extract_graph_between_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
         node_out: The output node.
         stage: The current stage.
         cell_lib: The imported cell library.
+        fi_model: The current fault model.
 
     Returns:
         The subgraph between node_in and node_out.
@@ -213,6 +214,14 @@ def extract_graph_between_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
         reg["node"].name for reg in registers
         if reg["node"].name != (node_in or node_out)
     ]
+
+    # If specified in the fault model, also ignore other cells.
+    if "exclude_cells_graph" in fi_model:
+        for node in graph.nodes():
+            for exclude_cell in fi_model["exclude_cells_graph"]:
+                if exclude_cell in node:
+                    nodes_exclude.append(node)
+
     sub_graph = nx.subgraph_view(graph,
                                  filter_node=lambda n: n in
                                  [node_in, node_out] or n not in nodes_exclude)
@@ -542,7 +551,8 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict,
             for node_out in fi_model["stages"][stage_name]["outputs"]:
                 stage_graphs.append(
                     extract_graph_between_nodes(subgraph, node_in, node_out,
-                                                stage_name, cell_lib))
+                                                stage_name, cell_lib,
+                                                fi_model))
         stage_graph = nx.compose_all(stage_graphs)
         # Rename the nodes to break dependencies between target graphs.
         rename_string = ("_" + stage_name)
