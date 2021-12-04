@@ -619,10 +619,14 @@ def gen_fault_locations(fi_model: dict, graph: nx.DiGraph,
         exclude_cells = fi_model["exclude_auto_fl"]
 
     for node, attribute in graph.nodes(data=True):
-        if attribute["node"].type not in filter_types and attribute[
-                "node"].parent_name not in exclude_cells:
-            fault_locations[attribute["node"].parent_name].append(
-                attribute["node"].stage)
+        if attribute["node"].type not in filter_types:
+            exclude = False
+            for exclude_cell in exclude_cells:
+                if exclude_cell in attribute["node"].parent_name:
+                    exclude = True
+            if not exclude:
+                fault_locations[attribute["node"].parent_name].append(
+                    attribute["node"].stage)
 
     return fault_locations
 
