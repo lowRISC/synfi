@@ -9,6 +9,7 @@ import importlib.util
 import itertools
 import json
 import logging
+import math
 import pickle
 import sys
 import time
@@ -82,6 +83,12 @@ def parse_arguments(argv):
                         type=int,
                         required=True,
                         help="Number of cores to use")
+    parser.add_argument("-l",
+                        "--limit_faults",
+                        dest="fault_limit",
+                        type=int,
+                        required=False,
+                        help="Limit the number of performed fault injections")
     parser.add_argument("--auto_fl",
                         action="store_true",
                         help="Automatically generate the fault locations")
@@ -126,7 +133,8 @@ def read_circuit(graph: nx.DiGraph, args) -> nx.DiGraph:
     return graph
 
 
-def fault_combinations(graph: nx.DiGraph, fi_model: dict) -> list:
+def fault_combinations(graph: nx.DiGraph, fi_model: dict,
+                       fault_limit: int) -> list:
     """ Calculates all possible fault location combinations based on the model.
 
     The fault model contains a list of fault targets (gates), the fault mapping
@@ -135,7 +143,8 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict) -> list:
 
     Args:
         graph: The networkx digraph of the circuit.
-        fi_model: The active fault model
+        fi_model: The active fault model.
+        fault_limit: The max number of fault locations.
 
     Returns:
         A list containing all fault locations and the corresponding gates.
@@ -171,8 +180,16 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict) -> list:
         combinations_for_faulty_nodes = list(
             itertools.product(*faulty_nodes_mapping))
         fault_combinations.append(combinations_for_faulty_nodes)
-    # Flatten the list and return.
-    return [item for sublist in fault_combinations for item in sublist]
+        # Abort the loop when the fault_limit is reached.
+        if fault_limit and (len(fault_combinations) *
+                            simultaneous_faults) >= fault_limit:
+            break
+    # Flatten the list, limit size to fault limit, and return.
+    fl_list = [item for sublist in fault_combinations for item in sublist]
+    if fault_limit:
+        fl_list = fl_list[:math.ceil(fault_limit / simultaneous_faults)]
+
+    return fl_list
 
 
 def get_registers(graph: nx.DiGraph, cell_lib: types.ModuleType) -> list:
@@ -669,7 +686,7 @@ def handle_fault_locations(auto_fl: bool, fi_model: dict, graph: nx.DiGraph,
 
 
 def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
-                       num_cores: int, auto_fl: bool,
+                       num_cores: int, auto_fl: bool, fault_limit: int,
                        cell_lib: types.ModuleType) -> list:
     """ Handles each fault model of the fault model specification file.
 
@@ -684,6 +701,7 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
         fi_model: The active fault model.
         num_cores: The number of cores to use for the FI.
         auto_fl: Autogenerate the fault locations?
+        fault_limit: The maximum number of faults.
         cell_lib: The imported cell library.
 
     Returns:
@@ -697,7 +715,7 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
                                       cell_lib)
 
     # Determine all possible fault location combinations.
-    fault_locations = fault_combinations(graph, fi_model)
+    fault_locations = fault_combinations(graph, fi_model, fault_limit)
 
     # Split the fault locations into num_cores shares.
     fl_shares = numpy.array_split(numpy.array(fault_locations), num_cores)
@@ -785,7 +803,7 @@ def main(argv=None):
     for fi_model_name, fi_model in fi_models.items():
         results.append(
             handle_fault_model(graph, fi_model_name, fi_model, num_cores,
-                               args.auto_fl, cell_lib))
+                               args.auto_fl, args.fault_limit, cell_lib))
 
     tstp_end = time.time()
     logger.info("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
