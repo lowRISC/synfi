@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
-
+import gc
 import networkx as nx
 import ray
 from pysat.solvers import Lingeling
@@ -425,7 +425,13 @@ class FiInjector:
             solver.add_clause([-self.cell_lib.zero])
             # Hand the boolean formula to the SAT solver.
             sat_result = solver.solve()
-
+            # Invoke the garbage collector.
+            del solver
+            del formula_builder
+            del faulty_graph
+            del diff_graph
+            gc.collect()
+            # Append result.
             results.append(
                 FIResult(fault_name=self.fault_name,
                          sat_result=sat_result,
