@@ -98,7 +98,8 @@ class FormulaBuilder:
                                                                   self.graph,
                                                                   self.solver)
                     elif node_type != "input":
-                        if node_type_out in self.cell_lib.cell_mapping:
+                        if node_type_out in self.cell_lib.cell_mapping and self.graph.in_edges(
+                                node):
                             self.cell_lib.cell_mapping[node_type_out](
                                 inputs, self.graph, self.solver)
                         else:
