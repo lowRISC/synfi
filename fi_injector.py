@@ -534,10 +534,13 @@ def connect_graphs(graph: nx.DiGraph, subgraph: nx.DiGraph) -> nx.DiGraph:
                 # Avoid to create a loop between nodes in the same stage.
                 if subgraph.nodes[node_in]["node"].stage != subgraph.nodes[
                         node_out]["node"].stage:
+                    # Get the first output pin.
+                    pin = list(
+                        subgraph.nodes[node_out]["node"].outputs.values())[0]
                     subgraph_connected.add_edge(node_out,
                                                 node_in,
                                                 name=node_out + "_" + node_in,
-                                                out_pin="Q",
+                                                out_pin=pin,
                                                 in_pin=["I1"])
     return subgraph_connected
 
