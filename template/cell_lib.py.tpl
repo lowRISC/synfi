@@ -41,7 +41,9 @@ gate_in_type = {
   'xor': 'OTFI_I2',
   'input_formula': 'OTFI_I1',
   'in_node': 'OTFI_I1',
-  'output': 'OTFI_I1'
+  'output': 'OTFI_I1',
+  'input': 'OTFI_I1',
+  'input_fault': 'OTFI_I1'
 }
 
 gate_in_type_out = {
@@ -104,6 +106,8 @@ gate_out_type = {
 % for cell_name, out_type in cell_lib.type_mapping.gate_out_type.items():
   '${cell_name}': '${out_type}',
 % endfor
+  'input': 'OTFI_I1',
+  'input_fault': 'OTFI_I1'
 }
 
 out_type_pins = {

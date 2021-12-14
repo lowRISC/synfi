@@ -133,8 +133,8 @@ def read_circuit(graph: nx.DiGraph, args) -> nx.DiGraph:
     return graph
 
 
-def fault_combinations(graph: nx.DiGraph, fi_model: dict,
-                       fault_limit: int) -> list:
+def fault_combinations(graph: nx.DiGraph, fault_locations: list,
+                       fi_model: dict, fault_limit: int) -> list:
     """ Calculates all possible fault location combinations based on the model.
 
     The fault model contains a list of fault targets (gates), the fault mapping
@@ -143,6 +143,7 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict,
 
     Args:
         graph: The networkx digraph of the circuit.
+        fault_locations: The list of all fault locations.
         fi_model: The active fault model.
         fault_limit: The max number of fault locations.
 
@@ -151,11 +152,6 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict,
     """
     simultaneous_faults = fi_model["simultaneous_faults"]
     fault_mapping = fi_model["node_fault_mapping"]
-    fault_locations = []
-    for location, stages in fi_model["fault_locations"].items():
-        for stage in stages:
-            fault_locations.append(
-                FaultLocation(location=location, stage=stage, mapping=""))
 
     fault_combinations = []
     # Receive all possible fault location combinations using itertools.
@@ -175,7 +171,8 @@ def fault_combinations(graph: nx.DiGraph, fi_model: dict,
                                       mapping=gate))
                 faulty_nodes_mapping.append(faulty_node_mapping)
             else:
-                logger.error(f"Err: Node {fault_node} not found in graph.")
+                logger.error(
+                    f"Err: Node {fault_node.location} not found in graph.")
         # Calculate the cartesian product.
         combinations_for_faulty_nodes = list(
             itertools.product(*faulty_nodes_mapping))
@@ -597,7 +594,9 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict,
     return extracted_graph
 
 
-def evaluate_fault_results(results: list, fi_model: dict) -> None:
+def evaluate_fault_results(results: list, fi_model: dict, graph: nx.DiGraph,
+                           target_graph: nx.DiGraph,
+                           cell_lib: types.ModuleType) -> None:
     """ Prints the result of the fault attack.
 
     Summarizes the effective and ineffective faults found in the attack.
@@ -607,17 +606,30 @@ def evaluate_fault_results(results: list, fi_model: dict) -> None:
     Args:
         results: The results of the fault attack.
         fi_model_name: The name of the active fault model.
+        graph: The networkx digraph of the circuit.
+        target_graph: The extracted target graph.
+        cell_lib: The imported cell library.
+
     """
     ineffective_faults = 0
-    effective_faults = 0
+    effective_faults_comb = 0
+    effective_faults_seq = 0
     for result_per_fault_model in results:
         for result in result_per_fault_model:
-            if result.sat_result:
-                effective_faults = effective_faults + 1
-            else:
-                ineffective_faults = ineffective_faults + 1
+            for fault_location in result.fault_location:
+                # Determine the original gate type.
+                node_name = target_graph.nodes[
+                    fault_location.location]["node"].parent_name
+                node_type = graph.nodes[node_name]["node"].type
+                if result.sat_result:
+                    if node_type in cell_lib.registers:
+                        effective_faults_seq += 1
+                    else:
+                        effective_faults_comb += 1
+                else:
+                    ineffective_faults += 1
     logger.info(
-        f"Found {effective_faults * fi_model['simultaneous_faults']} effective faults and {ineffective_faults * fi_model['simultaneous_faults']} ineffective faults."
+        f"Found {effective_faults_comb} effective combinational faults, {effective_faults_seq} effective sequential faults, and {ineffective_faults} ineffective faults."
     )
     logger.info(helpers.header)
 
@@ -639,9 +651,7 @@ def gen_fault_locations(fi_model: dict, graph: nx.DiGraph,
     """
     fault_locations = DefaultDict(list)
 
-    filter_types = {
-        "input", "output", "in_node", "out_node", "null_node", "one_node"
-    }
+    filter_types = {"output", "in_node", "out_node", "null_node", "one_node"}
     filter_types = set.union(filter_types, cell_lib.registers)
 
     exclude_cells = []
@@ -676,8 +686,9 @@ def handle_fault_locations(auto_fl: bool, fi_model: dict, graph: nx.DiGraph,
         cell_lib: The imported cell library.
 
     Returns:
-        The fault model.
+        The fault location list.
     """
+    # Generate the fault locations, or check if they are in the fi_model.
     if auto_fl:
         fi_model["fault_locations"] = gen_fault_locations(
             fi_model, graph, cell_lib)
@@ -685,7 +696,24 @@ def handle_fault_locations(auto_fl: bool, fi_model: dict, graph: nx.DiGraph,
         if "fault_locations" not in fi_model:
             logger.error("Fault locations are missing in the fault model.")
             sys.exit()
-    return fi_model
+
+    # Find the corresponding fault locations in the target graph and append
+    # to fault_locations list.
+    fault_locations = []
+    filter_types = {"in_node", "out_node", "output"}
+    for fault_node, fault_stages in fi_model["fault_locations"].items():
+        for fault_stage in fault_stages:
+            nodes = [
+                n for n, d in graph.nodes(data=True)
+                if (d["node"].parent_name == fault_node and d["node"].stage ==
+                    fault_stage and d["node"].type not in filter_types)
+            ]
+            for node in nodes:
+                fault_locations.append(
+                    FaultLocation(location=node, stage=fault_stage,
+                                  mapping=""))
+
+    return fault_locations
 
 
 def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
@@ -714,17 +742,18 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
     target_graph = extract_graph(graph, fi_model, cell_lib)
 
     # Check the fault locations or auto generate them.
-    fi_model = handle_fault_locations(auto_fl, fi_model, target_graph,
-                                      cell_lib)
+    fault_loc = handle_fault_locations(auto_fl, fi_model, target_graph,
+                                       cell_lib)
 
     # Determine all possible fault location combinations.
-    fault_locations = fault_combinations(graph, fi_model, fault_limit)
+    fault_loc_comb = fault_combinations(target_graph, fault_loc, fi_model,
+                                        fault_limit)
 
     # Split the fault locations into num_cores shares.
-    fl_shares = numpy.array_split(numpy.array(fault_locations), num_cores)
+    fl_shares = numpy.array_split(numpy.array(fault_loc_comb), num_cores)
 
     logger.info(
-        f"Injecting {(len(fault_locations) * fi_model['simultaneous_faults']) } faults into {fi_model_name} ..."
+        f"Injecting {(len(fault_loc_comb) * fi_model['simultaneous_faults']) } faults into {fi_model_name} ..."
     )
 
     # Use ray to distribute fault injection to num_cores processes.
@@ -737,7 +766,7 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
     tasks = [worker.perform_attack.remote() for worker in workers]
     results = ray.get(tasks)
 
-    evaluate_fault_results(results, fi_model)
+    evaluate_fault_results(results, fi_model, graph, target_graph, cell_lib)
 
     # Flatten the list and return.
     return [item for sublist in results for item in sublist]
