@@ -154,7 +154,9 @@ gate_in_type = {
     'xor': 'OTFI_I2',
     'input_formula': 'OTFI_I1',
     'in_node': 'OTFI_I1',
-    'output': 'OTFI_I1'
+    'output': 'OTFI_I1',
+    'input': 'OTFI_I1',
+    'input_fault': 'OTFI_I1'
 }
 
 gate_in_type_out = {
@@ -462,6 +464,8 @@ gate_out_type = {
     'XNOR2_X2': 'ZN1',
     'XOR2_X1': 'Z1',
     'XOR2_X2': 'Z1',
+    'input': 'OTFI_I1',
+    'input_fault': 'OTFI_I1'
 }
 
 out_type_pins = {
@@ -3010,6 +3014,8 @@ cell_mapping = {
     'or_O': or_output,
     'input_Q': input_formula_Q,
     'input_QN': input_formula_QN,
+    'input_fault_Q': input_formula_Q,
+    'input_fault_QN': input_formula_QN,
     'in_node_Q': in_node_Q,
     'in_node_QN': in_node_QN,
     'out_node_Q': out_node,

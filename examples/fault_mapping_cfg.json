@@ -25,6 +25,7 @@
             "AOI221_X1":    ["OAI221_X1"],
             "MUX2_X1":      ["MUX2_X1"],
             "AOI222_X1":    ["OAI222_X1"],
-            "OAI222_X1":    ["AOI222_X1"]
+            "OAI222_X1":    ["AOI222_X1"],
+            "input":        ["input_fault"]
         }
 }

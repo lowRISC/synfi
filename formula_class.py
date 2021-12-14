@@ -93,7 +93,8 @@ class FormulaBuilder:
                     # If there is an input port with input size greater than 1
                     # than we have a predefined input value of one/zero for this
                     # input. Else we ignore input ports.
-                    if node_type == "input" and len(inputs) > 1:
+                    if (node_type == "input"
+                            or node_type == "input_fault") and len(inputs) > 1:
                         self.cell_lib.cell_mapping[node_type_out](inputs,
                                                                   self.graph,
                                                                   self.solver)

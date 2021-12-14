@@ -4,6 +4,7 @@
 
 import copy
 import gc
+
 import networkx as nx
 import ray
 from pysat.solvers import Lingeling
@@ -63,8 +64,8 @@ class FiInjector:
             # faulty nodes.
             nodes = [
                 n for n, d in self.target_graph.nodes(data=True)
-                if (d["node"].parent_name == node_target and d["node"].stage ==
-                    stage and d["node"].type != "output")
+                if (d["node"].name == node_target and d["node"].stage == stage
+                    and d["node"].type != "output")
             ]
             for node in nodes:
                 current_type = faulty_graph.nodes[node]["node"].type
@@ -157,22 +158,26 @@ class FiInjector:
             # Find all input nodes and connect with node.
             nodes = [
                 n for n, d in diff_graph.nodes(data=True)
-                if (d["node"].parent_name == node and d["node"].type == "input"
-                    )
+                if (d["node"].parent_name == node and (
+                    d["node"].type == "input"
+                    or d["node"].type == "input_fault"))
             ]
             for node in nodes:
-                if value == 1:
-                    diff_graph_in_logic.add_edge("one",
-                                                 node,
-                                                 name="one_wire",
-                                                 out_pin="O",
-                                                 in_pin=["I1"])
+                value_str = ""
+                node_type = diff_graph.nodes[node]["node"].type
+                # For fault inputs, invert the value.
+                if value == 1 and node_type == "input": value_str = "one"
+                elif value == 1 and node_type == "input_fault":
+                    value_str = "null"
+                elif value == 0 and node_type == "input":
+                    value_str = "null"
                 else:
-                    diff_graph_in_logic.add_edge("null",
-                                                 node,
-                                                 name="null_wire",
-                                                 out_pin="O",
-                                                 in_pin=["I1"])
+                    value_str = "one"
+                diff_graph_in_logic.add_edge(value_str,
+                                             node,
+                                             name=value_str + "_wire",
+                                             out_pin="O",
+                                             in_pin=["I1"])
         return diff_graph_in_logic
 
     def _add_xor_xnor_nodes(self, diff_graph_out_logic, node, value, node_name,
@@ -383,6 +388,7 @@ class FiInjector:
         # Rename the faulty graph.
         faulty_graph_renamed = helpers.rename_nodes(faulty_graph_renamed,
                                                     "_faulty", True)
+
         # Merge the graphs into a common graph.
         diff_graph = nx.compose(orig_graph, faulty_graph_renamed)
 
