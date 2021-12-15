@@ -15,6 +15,7 @@ import sys
 import time
 import types
 from dataclasses import dataclass
+from datetime import datetime
 from typing import DefaultDict
 
 import networkx as nx
@@ -634,8 +635,12 @@ def evaluate_fault_results(results: list, fi_model: dict, graph: nx.DiGraph,
                         effective_faults_comb += 1
                 else:
                     ineffective_faults += 1
+    # Calculate and print stats.
+    total_faults = effective_faults_comb + effective_faults_comb + ineffective_faults
+    effective_faults_comb_percent = round((effective_faults_comb / total_faults)*100, 2)
+    effective_faults_seq_percent = round((effective_faults_seq / total_faults)*100, 2)
     logger.info(
-        f"Found {effective_faults_comb} effective combinational faults, {effective_faults_seq} effective sequential faults, and {ineffective_faults} ineffective faults."
+        f"Found {effective_faults_comb} ({effective_faults_comb_percent}%) effective combinational faults, {effective_faults_seq} ({effective_faults_seq_percent}%) effective sequential faults, and {ineffective_faults} ineffective faults."
     )
     logger.info(helpers.header)
 
@@ -743,11 +748,15 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict, nu
     Returns:
         The fault result for the fault model.
     """
-    # Extract the target graph from the circuit.
-    target_graph = extract_graph(graph, fi_model, cell_lib)
-
     # Overwrite the sim_fault parameter if provided.
     if sim_faults: fi_model["simultaneous_faults"] = sim_faults
+
+    # Print fault model.
+    logger.info(helpers.header)
+    logger.info( f"{datetime.now()}: Starting FI Injector for fault model {fi_model_name} with {fi_model['simultaneous_faults']} simultaneous faults.")
+
+    # Extract the target graph from the circuit.
+    target_graph = extract_graph(graph, fi_model, cell_lib)
 
     # Check the fault locations or auto generate them.
     fault_loc = handle_fault_locations(auto_fl, fi_model, target_graph,
@@ -761,7 +770,7 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict, nu
     fl_shares = numpy.array_split(numpy.array(fault_loc_comb), num_cores)
 
     logger.info(
-        f"Injecting {(len(fault_loc_comb) * fi_model['simultaneous_faults']) } faults into {fi_model_name} ..."
+        f"Injecting {(len(fault_loc_comb) * fi_model['simultaneous_faults']) } faults..."
     )
 
     # Use ray to distribute fault injection to num_cores processes.
