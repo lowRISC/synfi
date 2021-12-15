@@ -89,6 +89,12 @@ def parse_arguments(argv):
                         type=int,
                         required=False,
                         help="Limit the number of performed fault injections")
+    parser.add_argument("-s",
+                        "--simultaneous_faults",
+                        dest="sim_faults",
+                        type=int,
+                        required=False,
+                        help="Number of simultaneous_faults. Overwrites the parameter in the fault model")
     parser.add_argument("--auto_fl",
                         action="store_true",
                         help="Automatically generate the fault locations")
@@ -716,9 +722,7 @@ def handle_fault_locations(auto_fl: bool, fi_model: dict, graph: nx.DiGraph,
     return fault_locations
 
 
-def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
-                       num_cores: int, auto_fl: bool, fault_limit: int,
-                       cell_lib: types.ModuleType) -> list:
+def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict, num_cores: int, auto_fl: bool, fault_limit: int, sim_faults: int, cell_lib: types.ModuleType) -> list:
     """ Handles each fault model of the fault model specification file.
 
     This function first extracts the target sub graph of the main circuit. Then,
@@ -733,6 +737,7 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
         num_cores: The number of cores to use for the FI.
         auto_fl: Autogenerate the fault locations?
         fault_limit: The maximum number of faults.
+        sim_faults: The number of simultaneous faults.
         cell_lib: The imported cell library.
 
     Returns:
@@ -740,6 +745,9 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
     """
     # Extract the target graph from the circuit.
     target_graph = extract_graph(graph, fi_model, cell_lib)
+
+    # Overwrite the sim_fault parameter if provided.
+    if sim_faults: fi_model["simultaneous_faults"] = sim_faults
 
     # Check the fault locations or auto generate them.
     fault_loc = handle_fault_locations(auto_fl, fi_model, target_graph,
@@ -834,8 +842,7 @@ def main(argv=None):
     results = []
     for fi_model_name, fi_model in fi_models.items():
         results.append(
-            handle_fault_model(graph, fi_model_name, fi_model, num_cores,
-                               args.auto_fl, args.fault_limit, cell_lib))
+            handle_fault_model(graph, fi_model_name, fi_model, num_cores, args.auto_fl, args.fault_limit, args.sim_faults, cell_lib))
 
     tstp_end = time.time()
     logger.info("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
