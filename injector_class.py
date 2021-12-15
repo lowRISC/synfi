@@ -166,7 +166,8 @@ class FiInjector:
                 value_str = ""
                 node_type = diff_graph.nodes[node]["node"].type
                 # For fault inputs, invert the value.
-                if value == 1 and node_type == "input": value_str = "one"
+                if value == 1 and node_type == "input": 
+                    value_str = "one"
                 elif value == 1 and node_type == "input_fault":
                     value_str = "null"
                 elif value == 0 and node_type == "input":
@@ -426,7 +427,6 @@ class FiInjector:
             solver = formula_builder.transform_graph()
 
             # Set one to logical one and  zero to logical zero.
-            #solver.set_phases(literals=[self.cell_lib.one, -self.cell_lib.zero])
             solver.add_clause([self.cell_lib.one])
             solver.add_clause([-self.cell_lib.zero])
             # Hand the boolean formula to the SAT solver.
