@@ -40,6 +40,17 @@ logger = logging.getLogger()
 
 
 @dataclass
+class StageGraphNodes:
+    """ Nodes in a stage graph.
+
+    Contains the input and output node of a stage graph.
+
+    """
+    node_in: str
+    node_out: str
+
+
+@dataclass
 class FaultLocation:
     """ Fault Locations.
 
@@ -216,57 +227,63 @@ def get_registers(graph: nx.DiGraph, cell_lib: types.ModuleType) -> list:
     return registers
 
 
-def extract_graph_between_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
-                                stage: str, cell_lib: types.ModuleType,
+@ray.remote
+def extract_graph_between_nodes(graph: nx.DiGraph, stages: list,
+                                stage_name: str, cell_lib: types.ModuleType,
                                 fi_model: dict) -> nx.DiGraph:
     """ Extract the subgraph between two nodes.
 
     Args:
         graph: The networkx digraph of the circuit.
-        node_in: The input node.
-        node_out: The output node.
-        stage: The current stage.
+        stages: The list of stages.
+        stage_name: The current stage.
         cell_lib: The imported cell library.
         fi_model: The current fault model.
 
     Returns:
         The subgraph between node_in and node_out.
     """
-    # Create a subgraph between in_node and out_node excluding other registers.
-    registers = get_registers(graph, cell_lib)
-    nodes_exclude = [
-        reg["node"].name for reg in registers
-        if reg["node"].name != (node_in or node_out)
-    ]
+    graphs_between_nodes = []
+    for stage in stages:
+        node_in = stage.node_in
+        node_out = stage.node_out
+        # Create a subgraph between in_node and out_node excluding other registers.
+        registers = get_registers(graph, cell_lib)
+        nodes_exclude = [
+            reg["node"].name for reg in registers
+            if reg["node"].name != (node_in or node_out)
+        ]
 
-    # If specified in the fault model, also ignore other cells.
-    if "exclude_cells_graph" in fi_model:
-        for node in graph.nodes():
-            for exclude_cell in fi_model["exclude_cells_graph"]:
+        # If specified in the fault model, also ignore other cells.
+        for exclude_cell in fi_model.get("exclude_cells_graph", []):
+            for node in graph.nodes():
                 if exclude_cell in node:
                     nodes_exclude.append(node)
 
-    sub_graph = nx.subgraph_view(graph,
-                                 filter_node=lambda n: n in
-                                 [node_in, node_out] or n not in nodes_exclude)
+        sub_graph = nx.subgraph_view(
+            graph,
+            filter_node=lambda n: n in [node_in, node_out
+                                        ] or n not in nodes_exclude)
 
-    # Find all pathes between in_node and out_node and create the new graph.
-    if node_in == node_out:
-        paths_between_generator = nx.simple_cycles(sub_graph)
-    else:
-        paths_between_generator = nx.all_simple_paths(sub_graph,
-                                                      source=node_in,
-                                                      target=node_out)
-    nodes_between_set = {
-        node
-        for path in paths_between_generator for node in path
-    }
-    graph_in_out_node = graph.subgraph(nodes_between_set)
+        # Find all pathes between in_node and out_node and create the new graph.
+        if node_in == node_out:
+            paths_between_generator = nx.simple_cycles(sub_graph)
+        else:
+            paths_between_generator = nx.all_simple_paths(sub_graph,
+                                                          source=node_in,
+                                                          target=node_out)
+        nodes_between_set = {
+            node
+            for path in paths_between_generator for node in path
+        }
+        graph_in_out_node = graph.subgraph(nodes_between_set)
 
-    for node, attribute in graph_in_out_node.nodes(data=True):
-        attribute["node"].stage = stage
+        for node, attribute in graph_in_out_node.nodes(data=True):
+            attribute["node"].stage = stage_name
 
-    return graph_in_out_node
+        graphs_between_nodes.append(graph_in_out_node)
+
+    return nx.compose_all(graphs_between_nodes)
 
 
 def reconnect_node(graph: nx.DiGraph, node: str, node_new: str,
@@ -552,8 +569,54 @@ def connect_graphs(graph: nx.DiGraph, subgraph: nx.DiGraph) -> nx.DiGraph:
     return subgraph_connected
 
 
+def extract_stage_graphs(graph: nx.DiGraph, fi_model: dict, stage_name: str,
+                         cell_lib: types.ModuleType, num_cores: int) -> list:
+    """ Extract the stage graph.
+
+    The stage graph is the graph between two nodes defined by the fault model.
+
+    Args:
+        graph: The networkx digraph of the circuit.
+        fi_model: The active fault model.
+        stage_name: The name of the current stage.
+        cell_lib: The imported cell library.
+        num_cores: The number of cores to use for the FI.
+
+    Returns:
+        The extracted stage graph.
+    """
+
+    stage_graphs = []
+    stage_combinations = []
+    # Get all possible node_in node_out combinations.
+    for node_in, node_out in itertools.product(
+            fi_model["stages"][stage_name]["inputs"],
+            fi_model["stages"][stage_name]["outputs"]):
+        stage_combinations.append(
+            StageGraphNodes(node_in=node_in, node_out=node_out))
+
+    if len(stage_combinations) < num_cores:
+        num_cores = len(stage_combinations)
+    # Split the list into num_cores shares.
+    stage_comb_shares = numpy.array_split(numpy.array(stage_combinations),
+                                          num_cores)
+
+    # Use ray to distribute the extraction to num_cores processes.
+    tasks = [
+        extract_graph_between_nodes.remote(graph, stage_comb_share, stage_name,
+                                           cell_lib, fi_model)
+        for stage_comb_share in stage_comb_shares
+    ]
+
+    # Collect the resulting stage graphs.
+    stage_graphs = ray.get(tasks)
+
+    # Return the stage graph containing all subgraphs.
+    return nx.compose_all(stage_graphs)
+
+
 def extract_graph(graph: nx.DiGraph, fi_model: dict,
-                  cell_lib: types.ModuleType) -> nx.DiGraph:
+                  cell_lib: types.ModuleType, num_cores: int) -> nx.DiGraph:
     """ Extract the subgraph containing all comb. and seq. logic of interest.
 
     The subgraphs between all input and output nodes defined in the fault model
@@ -563,6 +626,8 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict,
         graph: The networkx digraph of the circuit.
         fi_model: The active fault model.
         cell_lib: The imported cell library.
+        num_cores: The number of cores to use for the FI.
+
     Returns:
         The extracted subgraph of the original graph.
     """
@@ -573,14 +638,8 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict,
         # Extract the target graph.
         subgraph = copy.deepcopy(graph)
         stage_name = stage
-        stage_graphs = []
-        for node_in in fi_model["stages"][stage_name]["inputs"]:
-            for node_out in fi_model["stages"][stage_name]["outputs"]:
-                stage_graphs.append(
-                    extract_graph_between_nodes(subgraph, node_in, node_out,
-                                                stage_name, cell_lib,
-                                                fi_model))
-        stage_graph = nx.compose_all(stage_graphs)
+        stage_graph = extract_stage_graphs(subgraph, fi_model, stage_name,
+                                           cell_lib, num_cores)
         # Rename the nodes to break dependencies between target graphs.
         rename_string = ("_" + stage_name)
         stage_graph = helpers.rename_nodes(stage_graph, rename_string, False)
@@ -765,7 +824,7 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
     )
 
     # Extract the target graph from the circuit.
-    target_graph = extract_graph(graph, fi_model, cell_lib)
+    target_graph = extract_graph(graph, fi_model, cell_lib, num_cores)
 
     # Check the fault locations or auto generate them.
     fault_loc = handle_fault_locations(auto_fl, fi_model, target_graph,
