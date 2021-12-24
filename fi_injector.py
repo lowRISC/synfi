@@ -16,6 +16,7 @@ import time
 import types
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import DefaultDict
 
 import networkx as nx
@@ -95,12 +96,21 @@ def parse_arguments(argv):
                         type=int,
                         required=True,
                         help="Number of cores to use")
+    parser.add_argument("--store_target_graph",
+                        action="store_true",
+                        help="Write target graph as a .pickle file")
     parser.add_argument("-l",
                         "--limit_faults",
                         dest="fault_limit",
                         type=int,
                         required=False,
                         help="Limit the number of performed fault injections")
+    parser.add_argument("-t",
+                        "--target_graph",
+                        dest="target_graph",
+                        type=helpers.ap_check_file_exists,
+                        required=False,
+                        help="Load the .pickle target graph")
     parser.add_argument(
         "-s",
         "--simultaneous_faults",
@@ -139,17 +149,17 @@ def open_fi_models(args) -> dict:
     return fi_models["fimodels"]
 
 
-def read_circuit(graph: nx.DiGraph, args) -> nx.DiGraph:
+def read_circuit(file: Path) -> nx.DiGraph:
     """ Opens the circuit in the pickle file.
 
     Args:
-        graph: The networkx digraph.
-        args: The input arguments.
+        file: The file to open.
 
     Returns:
         The graph stored in the pickle file.
     """
-    with open(args.circuit_pickle, 'rb') as f:
+    graph = nx.DiGraph()
+    with open(file, 'rb') as f:
         graph = pickle.load(f)
     return graph
 
@@ -791,9 +801,27 @@ def handle_fault_locations(auto_fl: bool, fi_model: dict, graph: nx.DiGraph,
     return fault_locations
 
 
+def write_target_graph(graph: nx.DiGraph,
+                       outfile: Path,
+                       store_target: bool = False) -> None:
+    """ Writes the target graph to a pickle file.
+
+    Args:
+        graph: The target graph.
+        outfile: The pathlib file path.
+        store_target: If true, write the target graph to a .pickle file.
+    """
+    file_name = outfile.with_suffix('.pickle')
+    if store_target:
+        with open(file_name, "wb") as f:
+            pickle.dump(graph, f)
+
+
 def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
                        num_cores: int, auto_fl: bool, fault_limit: int,
-                       sim_faults: int, cell_lib: types.ModuleType) -> list:
+                       sim_faults: int, store_target: bool,
+                       target_graph_stored: Path,
+                       cell_lib: types.ModuleType) -> list:
     """ Handles each fault model of the fault model specification file.
 
     This function first extracts the target sub graph of the main circuit. Then,
@@ -809,6 +837,8 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
         auto_fl: Autogenerate the fault locations?
         fault_limit: The maximum number of faults.
         sim_faults: The number of simultaneous faults.
+        store_target: If true, store target graph to pickle file.
+        target_graph_stored: If provided, load target graph instead of creating.
         cell_lib: The imported cell library.
 
     Returns:
@@ -823,8 +853,15 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
         f"{datetime.now()}: Starting FI Injector for fault model {fi_model_name} with {fi_model['simultaneous_faults']} simultaneous faults."
     )
 
-    # Extract the target graph from the circuit.
-    target_graph = extract_graph(graph, fi_model, cell_lib, num_cores)
+    # Open or create the target graph.
+    if (target_graph_stored):
+        target_graph = read_circuit(target_graph_stored)
+    else:
+        # Extract the target graph from the circuit.
+        target_graph = extract_graph(graph, fi_model, cell_lib, num_cores)
+
+    # Write the target graph to a pickle file.
+    write_target_graph(target_graph, Path(fi_model_name), store_target)
 
     # Check the fault locations or auto generate them.
     fault_loc = handle_fault_locations(auto_fl, fi_model, target_graph,
@@ -912,8 +949,7 @@ def main(argv=None):
 
     # Open the fault model and the graph.
     fi_models = open_fi_models(args)
-    graph = nx.DiGraph()
-    graph = read_circuit(graph, args)
+    graph = read_circuit(args.circuit_pickle)
 
     # Handle each fault model.
     results = []
@@ -921,6 +957,7 @@ def main(argv=None):
         results.append(
             handle_fault_model(graph, fi_model_name, fi_model, num_cores,
                                args.auto_fl, args.fault_limit, args.sim_faults,
+                               args.store_target_graph, args.target_graph,
                                cell_lib))
 
     tstp_end = time.time()
