@@ -70,8 +70,6 @@ class CellLib:
     Contains the fields of the cell library.
 
     """
-    clk: str
-    rst: str
     reg: str
     pin_in_mapping: dict
     type_mapping: TypeMapping
@@ -426,9 +424,7 @@ def build_cell_lib(cells: list, cell_cfg: dict) -> CellLib:
     cell_formulas = build_cell_functions(cells)
     cell_mapping = build_cell_mapping(cells)
 
-    cell_lib = CellLib(clk=cell_cfg["clk"],
-                       rst=cell_cfg["rst"],
-                       reg=cell_cfg["reg"],
+    cell_lib = CellLib(reg=cell_cfg["reg"],
                        pin_in_mapping=cell_cfg["pin_in_mapping"],
                        type_mapping=type_mapping,
                        cell_formulas=cell_formulas,

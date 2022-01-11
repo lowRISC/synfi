@@ -21,13 +21,6 @@ logger = logging.getLogger(__name__)
 one = 1
 zero = 2
 
-# Set the clock and reset name and values.
-clk_name = 'clk_i'
-clk_value = one
-
-rst_name = 'rst_ni'
-rst_value = zero
-
 registers = {'DFFS_X1', 'DFFR_X1'}
 
 gate_in_type = {
