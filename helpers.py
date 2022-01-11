@@ -27,6 +27,51 @@ header = "-" * int(TERMINAL_COLS)
 
 
 @dataclass
+class Connection:
+    node_out: str
+    node_in: int
+    wire: str
+
+
+@dataclass
+class NodePort:
+    type: str
+    name: str
+    pins: list
+
+
+@dataclass
+class NodePin:
+    number: int
+    wire: str
+
+
+@dataclass
+class Edge:
+    in_port: str
+    in_pin: int
+    out_port: str
+    out_pin: int
+    wire: str
+
+
+@dataclass
+class Node:
+    """ Node class.
+
+    A node represents an element (gate, ...) in the circuit.
+
+    """
+    name: str
+    parent_name: str
+    type: str
+    in_ports: list
+    out_ports: list
+    stage: str
+    node_color: str
+
+
+@dataclass
 class InputPin:
     """ InputPin data class.
 
@@ -64,22 +109,6 @@ def show_and_exit(clitool: str, packages: str) -> None:
     for p in packages:
         sys.stderr.write(p + ' ' + pkg_resources.require(p)[0].version + '\n')
     exit(0)
-
-
-@dataclass
-class Node:
-    """ Node class.
-
-    A node represents an element (gate, ...) in the circuit.
-
-    """
-    name: str
-    parent_name: str
-    type: str
-    inputs: dict
-    outputs: dict
-    stage: str
-    node_color: str
 
 
 @dataclass

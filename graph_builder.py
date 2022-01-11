@@ -2,14 +2,20 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
+import sys
 from pathlib import Path
 
 import networkx as nx
+
+from helpers import Edge
 
 """Part of the fault injection framework for the OpenTitan.
 
 This module provides functions to build the graph of the netlist.
 """
+
+logger = logging.getLogger(__name__)
 
 
 def add_nodes(nodes: dict, graph: nx.DiGraph) -> None:
@@ -35,30 +41,30 @@ def add_edges(nodes: dict, connections: list, wires: dict,
     """
 
     for connection in connections:
-        wire = connection[2]
-        wire_name = wires[wire]
-        out_pin = nodes[connection[0]].outputs[wire]
-        in_pin = nodes[connection[1]].inputs[wire]
-        # If the edge is already in the graph, add multiple input and outputs
-        # to the edge attribute. Happens when a node_1 has multiple outputs
-        # (e.g. Q, QN) which are connected to multiple inputs of node_2.
-        if graph.has_edge(connection[0], connection[1]):
-            if out_pin != graph[connection[0]][connection[1]]["out_pin"]:
-                out_pin_new = []
-                out_pin_new.append(out_pin)
-                out_pin_new.append(graph[connection[0]][connection[1]]["out_pin"])
-                graph[connection[0]][connection[1]]["out_pin"] = out_pin_new
-            if in_pin != graph[connection[0]][connection[1]]["in_pin"]:
-                in_pin_new = []
-                in_pin_new.append(in_pin)
-                in_pin_new.append(graph[connection[0]][connection[1]]["in_pin"])
-                graph[connection[0]][connection[1]]["in_pin"] = in_pin_new
-        else:
-            graph.add_edge(connection[0],
-                           connection[1],
-                           name=wire_name,
-                           out_pin=out_pin,
-                           in_pin=in_pin)
+        edge = Edge(in_port="",
+                    in_pin=0,
+                    out_port="",
+                    out_pin=0,
+                    wire=connection.wire)
+        for in_port in nodes[connection.node_in].in_ports:
+            for pin in in_port.pins:
+                if pin.wire == connection.wire:
+                    edge.in_pin = pin.number
+                    edge.in_port = in_port.name
+                    break
+        for out_port in nodes[connection.node_out].out_ports:
+            for pin in out_port.pins:
+                if pin.wire == connection.wire:
+                    edge.out_pin = pin.number
+                    edge.out_port = out_port.name
+                    break
+        if not edge.in_port or not edge.out_port:
+            logger.error(
+                f"Could not resolve connection between node {connection.node_out} and {connection.node_in}."
+            )
+            sys.exit()
+
+        graph.add_edge(connection.node_out, connection.node_in, edge=edge)
 
 
 def build_graph(nodes: dict, connections: list, wires: dict,
@@ -122,21 +128,20 @@ def write_dot_graph(graph: nx.DiGraph, file_name: Path) -> None:
 
     dot = ""
 
-    for edge in graph.edges():
-        if "node" in graph.nodes[edge[0]] and graph.nodes[edge[1]]:
-            src_cell = graph.nodes[edge[0]]["node"]
+    for edge_in, edge_out, edge_data in graph.edges(data=True):
+        if "node" in graph.nodes[edge_in] and graph.nodes[edge_out]:
+            src_cell = graph.nodes[edge_in]["node"]
             src_str = "\"%s_%s\"" % (src_cell.type, src_cell.name)
             src_color = src_cell.node_color
             if src_color != "black":
                 dot += "%s [color = %s];\n" % (src_str, src_color)
 
-            dst_cell = graph.nodes[edge[1]]["node"]
+            dst_cell = graph.nodes[edge_out]["node"]
             dst_str = "\"%s_%s\"" % (dst_cell.type, dst_cell.name)
             dst_color = dst_cell.node_color
             if dst_color != "black":
                 dot += "%s [color = %s];\n" % (dst_str, dst_color)
-            wire_name = "\"%s\"" % (graph.get_edge_data(edge[0],
-                                                        edge[1])["name"])
+            wire_name = "\"%s\"" % (edge_data["edge"].wire)
 
             if src_cell.type == "input":
                 inputs_list.append((src_str, dst_str, wire_name))

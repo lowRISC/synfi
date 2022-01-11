@@ -4,6 +4,8 @@
 
 import copy
 import gc
+import logging
+import sys
 
 import networkx as nx
 import ray
@@ -11,7 +13,9 @@ from pysat.solvers import Lingeling
 
 import helpers
 from formula_class import FormulaBuilder
-from helpers import FIResult, Node
+from helpers import Edge, FIResult, Node, NodePin, NodePort
+
+logger = logging.getLogger()
 
 
 @ray.remote
@@ -23,8 +27,8 @@ class FiInjector:
     extract the boolean CNF formula of this graph, and to hand the formula to
     a SAT solver.
     """
-    def __init__(self, fault_name, target_graph, fault_locations, fault_model,
-                 cell_lib):
+    def __init__(self, fault_name, target_graph, graph, fault_locations,
+                 fault_model, cell_lib):
         """ Inits the injector class
 
         This function injects faults into the graph by replacing the type of
@@ -33,12 +37,14 @@ class FiInjector:
         Args:
             fault_name: The fault model name of the current attack.
             target_graph: The graph to be evaluated.
+            graph: The unmodified graph of the whole circuit.
             fault_locations: The location and fault mapping of the faults.
             fault_model: The fault model.
             cell_lib: The imported cell library.
         """
         self.fault_name = fault_name
         self.target_graph = target_graph
+        self.graph = graph
         self.fault_locations = fault_locations
         self.fault_model = fault_model
         self.cell_lib = cell_lib
@@ -71,48 +77,66 @@ class FiInjector:
                 current_type = faulty_graph.nodes[node]["node"].type
                 faulty_graph.nodes[node]["node"].type = fault_type
                 faulty_graph.nodes[node]["node"].node_color = "red"
+                # Update the inport port.
                 gate_in_type_current = self.cell_lib.gate_in_type[current_type]
                 gate_in_type_faulty = self.cell_lib.gate_in_type[fault_type]
                 if gate_in_type_current != gate_in_type_faulty:
-                    # We need to remap the input pins as the input type
+                    # We need to remap the input ports as the input type
                     # mismatches.
-                    in_pin_mapping = self.cell_lib.pin_in_mapping[
+                    in_port_mapping = self.cell_lib.port_in_mapping[
                         gate_in_type_current][gate_in_type_faulty]
-                    # Update the pin name in the node dict.
-                    for pin in faulty_graph.nodes[node]["node"].inputs.keys():
-                        faulty_graph.nodes[node]["node"].inputs[pin][
-                            0] = in_pin_mapping[faulty_graph.nodes[node]
-                                                ["node"].inputs[pin][0]]
-                    # Update pin name in the edge.
-                    for edge in faulty_graph.in_edges(node):
-                        if faulty_graph.get_edge_data(
-                                edge[0],
-                                edge[1])["in_pin"][0] in in_pin_mapping:
-                            faulty_graph.get_edge_data(
-                                edge[0],
-                                edge[1])["in_pin"][0] = in_pin_mapping[
-                                    faulty_graph.get_edge_data(
-                                        edge[0], edge[1])["in_pin"][0]]
+                    # Update the port name in the node dict.
+                    for port in faulty_graph.nodes[node]["node"].in_ports:
+                        port.name = in_port_mapping[port.name]
+                    # Update port name in the edge.
+                    for edge_out, edge_in in faulty_graph.in_edges(node):
+                        faulty_graph.get_edge_data(
+                            edge_out,
+                            edge_in)[0]["edge"].in_port = in_port_mapping[
+                                faulty_graph.get_edge_data(
+                                    edge_out, edge_in)[0]["edge"].in_port]
+                # Update the output port.
                 gate_out_type_current = self.cell_lib.gate_out_type[
                     current_type]
                 gate_out_type_faulty = self.cell_lib.gate_out_type[fault_type]
                 if gate_out_type_current != gate_out_type_faulty:
                     # We need to remap the output pins as the output type
                     # mismatches.
-                    out_pin_mapping = self.cell_lib.pin_out_mapping[
+                    out_port_mapping = self.cell_lib.port_out_mapping[
                         gate_out_type_current][gate_out_type_faulty]
-                    # Update the pin name in the node dict.
-                    for pin in faulty_graph.nodes[node]["node"].outputs.keys():
-                        faulty_graph.nodes[node]["node"].outputs[
-                            pin] = out_pin_mapping[faulty_graph.nodes[node]
-                                                   ["node"].outputs[pin]]
-                    # Update pin name in the edge.
-                    for edge in faulty_graph.out_edges(node):
+                    # Update the port name in the node dict.
+                    for port in faulty_graph.nodes[node]["node"].out_ports:
+                        port.name = out_port_mapping[port.name]
+                    # Update port name in the edge.
+                    for edge_out, edge_in in faulty_graph.out_edges(node):
                         faulty_graph.get_edge_data(
-                            edge[0], edge[1])["out_pin"] = out_pin_mapping[
-                                faulty_graph.get_edge_data(edge[0],
-                                                           edge[1])["out_pin"]]
+                            edge_out,
+                            edge_in)[0]["edge"].out_port = out_port_mapping[
+                                faulty_graph.get_edge_data(
+                                    edge_out, edge_in)[0]["edge"].out_port]
+
         return faulty_graph
+
+    def _check_port_pin(self, node, ports, port_name, pin_number):
+        """ Check if the user provided port and pin for an input/output node
+        is valid. Terminates on an error.
+
+        Args:
+            node: The provided input/output node.
+            ports: The ports of the corresponding node.
+            port_name: The provided port name.
+            pin_number: The provided pin number.
+        """
+
+        for port in ports:
+            if port.name == port_name:
+                for pin in port.pins:
+                    if pin.number == int(pin_number):
+                        return
+
+        logger.error(f"Provided port/pin {port_name}/{pin_number} for node {node} not found.")
+        sys.exit()
+
 
     def _add_in_logic(self, diff_graph):
         """ Add the input logic to the differential graph.
@@ -135,8 +159,12 @@ class FiInjector:
                 Node(name="null",
                      parent_name="null",
                      type="null_node",
-                     inputs={},
-                     outputs={'0': "O"},
+                     in_ports=[],
+                     out_ports=[
+                         NodePort(name="O",
+                                  type="output",
+                                  pins=[NodePin(number=0, wire="0")])
+                     ],
                      stage="",
                      node_color="black")
             })
@@ -146,43 +174,59 @@ class FiInjector:
                 Node(name="one",
                      parent_name="one",
                      type="one_node",
-                     inputs={},
-                     outputs={'1': "O"},
+                     in_ports=[],
+                     out_ports=[
+                         NodePort(name="O",
+                                  type="output",
+                                  pins=[NodePin(number=0, wire="1")])
+                     ],
                      stage="",
                      node_color="black")
             })
         # Get the input values from the fault model and connect each input node
         # with the null / one node.
         input_values = self.fault_model["input_values"]
-        for node, value in input_values.items():
+        for node_name, value in input_values.items():
             # Find all input nodes and connect with node.
             nodes = [
                 n for n, d in diff_graph.nodes(data=True)
-                if (d["node"].parent_name == node and (
+                if (d["node"].parent_name == node_name and (
                     d["node"].type == "input"
                     or d["node"].type == "input_fault"))
             ]
             for node in nodes:
-                value_str = ""
-                node_type = diff_graph.nodes[node]["node"].type
-                # For fault inputs, invert the value.
-                if value == 1 and node_type == "input": 
-                    value_str = "one"
-                elif value == 1 and node_type == "input_fault":
-                    value_str = "null"
-                elif value == 0 and node_type == "input":
-                    value_str = "null"
-                else:
-                    value_str = "one"
-                diff_graph_in_logic.add_edge(value_str,
-                                             node,
-                                             name=value_str + "_wire",
-                                             out_pin="O",
-                                             in_pin=["I1"])
+                # Fetch the data for each pin of the provided in node.
+                for port_name, port in value.items():
+                    for pin_number, pin_value in port.items():
+                        value_str = ""
+                        node_type = diff_graph.nodes[node]["node"].type
+                        # For fault inputs, invert the value.
+                        if pin_value == 1 and node_type == "input":
+                            value_str = "one"
+                        elif pin_value == 1 and node_type == "input_fault":
+                            value_str = "null"
+                        elif pin_value == 0 and node_type == "input":
+                            value_str = "null"
+                        else:
+                            value_str = "one"
+                        # Check if the provided port/pin exists for the node.
+                        self._check_port_pin(
+                            node, diff_graph.nodes[node]["node"].in_ports,
+                            port_name, pin_number)
+                        # Connect the null/one node with the input node.
+                        edge = Edge(in_port=port_name,
+                                    in_pin=pin_number,
+                                    out_port="O",
+                                    out_pin=0,
+                                    wire="")
+                        diff_graph_in_logic.add_edge(value_str,
+                                                     node,
+                                                     edge=edge)
+
         return diff_graph_in_logic
 
     def _add_xor_xnor_nodes(self, diff_graph_out_logic, node, value, node_name,
-                            node_type):
+                            node_type, out_port, out_pin):
         """ Add the xor/xnor node.
 
         In this function, the actual node for the comparison is added to the
@@ -194,6 +238,8 @@ class FiInjector:
             value: The output value set in the fault model.
             node_name: The name of the new node.
             node_type: The type of the new node.
+            out_port: The port of the new node.
+            out_pin: The pin of the new node.
 
         """
         diff_graph_out_logic.add_node(
@@ -202,25 +248,35 @@ class FiInjector:
                 Node(name=node_name,
                      parent_name=node_name,
                      type=node_type,
-                     inputs={0: ["I"]},
-                     outputs={0: "O"},
+                     in_ports=[
+                         NodePort(type="input",
+                                  name="I",
+                                  pins=[
+                                      NodePin(number=0, wire=""),
+                                      NodePin(number=1, wire="")
+                                  ])
+                     ],
+                     out_ports=[
+                         NodePort(type="output",
+                                  name="O",
+                                  pins=[NodePin(number=0, wire="")])
+                     ],
                      stage="out_stage",
                      node_color="purple")
             })
-        null_zero = "null"
-        if value == 1: null_zero = "one"
-        diff_graph_out_logic.add_edge(null_zero,
-                                      node_name,
-                                      name=null_zero + "_wire",
-                                      out_pin="O",
-                                      in_pin=["I1"])
-        diff_graph_out_logic.add_edge(node,
-                                      node_name,
-                                      name="node_wire",
-                                      out_pin="O",
-                                      in_pin=["I2"])
-        diff_graph_out_logic.nodes[node]["node"].outputs = {0: "O"}
-        diff_graph_out_logic.nodes[node]["node"].inputs = {0: ["I"]}
+        null_one = "null"
+        if value == 1:
+            null_one = "one"
+        # Add the connection between and the null/one and the XOR/XNOR node.
+        edge = Edge(in_port="I0", in_pin=0, out_port="O", out_pin=0, wire="")
+        diff_graph_out_logic.add_edge(null_one, node_name, edge=edge)
+        # Add the connection between the output and the XOR/XNOR node.
+        edge = Edge(in_port="I1",
+                    in_pin=0,
+                    out_port=out_port,
+                    out_pin=int(out_pin),
+                    wire="")
+        diff_graph_out_logic.add_edge(node, node_name, edge=edge)
 
     def _add_output(self, diff_graph_out_logic, diff_graph, values, faulty,
                     alert, exp_fault):
@@ -242,38 +298,86 @@ class FiInjector:
             A list with the added nodes.
         """
         out_nodes_added = []
-        for node_target, value in values.items():
+        for node_target, ports in values.items():
             nodes = [
                 n for n, d in diff_graph.nodes(data=True)
                 if (d["node"].parent_name == node_target
                     and d["node"].type == "output")
             ]
             for node in nodes:
-                if faulty:
-                    if "_faulty" in node:
-                        node_name = node + "_xor"
-                        node_type = "xor"
-                        if alert or exp_fault:
-                            node_name = node + "_xnor_alert_exp"
-                        if alert or exp_fault: node_type = "xnor"
-                        out_nodes_added.append(node_name)
-                        self._add_xor_xnor_nodes(diff_graph_out_logic, node,
-                                                 value, node_name, node_type)
-                else:
-                    if "_faulty" not in node:
-                        node_name = node + "_xnor"
-                        if alert: node_name = node + "_xnor_alert"
-                        node_type = "xnor"
-                        out_nodes_added.append(node_name)
-                        self._add_xor_xnor_nodes(diff_graph_out_logic, node,
-                                                 value, node_name, node_type)
+                # Fetch the port/pin values provided in the FI model.
+                for port_name, port in ports.items():
+                    for pin_number, pin_value in port.items():
+                        # If the node consists of output edges in the orig.
+                        # graph, check the provided ports/pins.
+                        if self.graph.out_edges(node):
+                            self._check_port_pin(
+                                node, diff_graph.nodes[node]["node"].out_ports,
+                                port_name, pin_number)
+                        if faulty:
+                            if "_faulty" in node:
+                                node_name = node + "_xor"
+                                node_type = "xor"
+                                if alert or exp_fault:
+                                    node_name = node + "_xnor_alert_exp"
+                                if alert or exp_fault:
+                                    node_type = "xnor"
+                                out_nodes_added.append(node_name)
+                                self._add_xor_xnor_nodes(
+                                    diff_graph_out_logic, node, pin_value,
+                                    node_name, node_type, port_name,
+                                    pin_number)
+                        else:
+                            if "_faulty" not in node:
+                                node_name = node + "_xnor"
+                                if alert:
+                                    node_name = node + "_xnor_alert"
+                                node_type = "xnor"
+                                out_nodes_added.append(node_name)
+                                self._add_xor_xnor_nodes(
+                                    diff_graph_out_logic, node, pin_value,
+                                    node_name, node_type, port_name,
+                                    pin_number)
+                        # Update the in_ports and out_ports of the node.
+                        add_port = True
+                        for out_port in diff_graph_out_logic.nodes[node][
+                                "node"].out_ports:
+                            if out_port.name == port_name:
+                                out_port.pins.append(
+                                    NodePin(number=int(pin_number), wire=""))
+                                add_port = False
+                                break
+                        if add_port:
+                            diff_graph_out_logic.nodes[node][
+                                "node"].out_ports.append(
+                                    NodePort(type="output",
+                                             name=port_name,
+                                             pins=[
+                                                 NodePin(
+                                                     number=int(pin_number),
+                                                     wire="")
+                                             ]))
 
         return out_nodes_added
 
     def _connect_outputs(self, diff_graph_out_logic, out_nodes, out_logic):
+        """ Connect a list of nodes with an output node.
+
+        Each node in the out_nodes list is connected with the output node
+        of type out_logic.
+
+        Args:
+            diff_graph_out_logic: The differential graph.
+            out_nodes: The nodes to connect.
+            out_logic: The type of the node.
+
+        Returns:
+            The name of the new node.
+        """
         # Flatten the list.
         out_nodes = [item for sublist in out_nodes for item in sublist]
-        # Connect the outputs of the XNOR/XORs with a AND.
+
+        # Connect the outputs of the XNOR/XORs with an AND.
         out_name = "output_logic_" + out_logic
         diff_graph_out_logic.add_node(
             out_name, **{
@@ -281,20 +385,26 @@ class FiInjector:
                 Node(name=out_name,
                      parent_name=out_name,
                      type=out_logic,
-                     inputs={0: ["I"]},
-                     outputs={0: "O"},
+                     in_ports=[NodePort(type="input", name="I", pins=[])],
+                     out_ports=[
+                         NodePort(type="output",
+                                  name="O",
+                                  pins=[NodePin(number=0, wire="")])
+                     ],
                      stage="",
                      node_color="purple")
             })
         cntr = 1
-
         for out_node in out_nodes:
-
+            diff_graph_out_logic.nodes[out_name]["node"].in_ports[
+                0].pins.append(NodePin(number=cntr, wire=""))
             diff_graph_out_logic.add_edge(out_node,
                                           out_name,
-                                          name=out_logic + "_wire",
-                                          out_pin="O",
-                                          in_pin=["A" + str(cntr)])
+                                          edge=Edge(in_port="A" + str(cntr),
+                                                    in_pin=0,
+                                                    out_port="O",
+                                                    out_pin=0,
+                                                    wire=""))
             cntr += 1
 
         return out_name
@@ -352,6 +462,11 @@ class FiInjector:
         and_output = self._connect_outputs(diff_graph_out_logic, out_and_nodes,
                                            "and")
 
+        self._connect_outputs(diff_graph_out_logic, [[and_output]],
+                              "terminate")
+
+        # Connect the AND node with the terminate node.
+
         if not fault_values:
             # OR all faulty output nodes.
             or_output = self._connect_outputs(diff_graph_out_logic,
@@ -360,11 +475,12 @@ class FiInjector:
             num_in_edges = 1
             for edge in diff_graph_out_logic.in_edges(and_output):
                 num_in_edges += 1
-            diff_graph_out_logic.add_edge(or_output,
-                                          and_output,
-                                          name="and_wire",
-                                          out_pin="O",
-                                          in_pin=["A" + str(num_in_edges)])
+            edge = Edge(in_port="A" + str(num_in_edges),
+                        in_pin=0,
+                        out_port="O",
+                        out_pin=0,
+                        wire="")
+            diff_graph_out_logic.add_edge(or_output, and_output, edge=edge)
 
         return diff_graph_out_logic
 

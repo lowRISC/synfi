@@ -152,7 +152,6 @@ gate_in_type = {
     'out_node': 'OTFI_D1',
     'xnor': 'OTFI_I2',
     'xor': 'OTFI_I2',
-    'input_formula': 'OTFI_I1',
     'in_node': 'OTFI_I1',
     'output': 'OTFI_I1',
     'input': 'OTFI_I1',
@@ -268,7 +267,6 @@ gate_in_type_out = {
     'out_node': 'OTFI_D1',
     'xnor': 'OTFI_I2',
     'xor': 'OTFI_I2',
-    'input_formula': 'OTFI_I1',
     'in_node': 'OTFI_I1',
     'output': 'OTFI_I1',
     'AND19': 'OTFI_A19',
@@ -653,6 +651,32 @@ def validate_inputs(inputs: dict, graph: nx.DiGraph, type: str) -> dict:
         logger.error(inputs)
         raise Exception('Gate ' + type + ' is missing some inputs.')
 
+def validate_generic_inputs(inputs: dict, num_inputs: int, type: str) -> dict:
+    """ Validates the provided input of a generic gate.
+
+    Generic gates, such as inputs, have generic input ports. Rename them to
+    input + counter.
+
+    Args:
+        inputs: The list of provided inputs.
+        num_inputs: The number of expected inputs.
+        type: The type of the gate.
+
+    Returns:
+        The inputs for the generic gate.
+    """
+    if len(inputs) != num_inputs:
+        logger.error(inputs)
+        raise Exception('Gate ' + type + ' is missing some inputs.')
+    input_symbols = {}
+    in_count = 0
+    for input_pin, input in inputs.items():
+        if input_pin == "node_name":
+            input_symbols[input_pin] = input.name
+        else:
+            input_symbols["input_" + str(in_count)] = input.name
+            in_count += 1
+    return input_symbols
 
 def AND2_X1_ZN(inputs: dict, graph: nx.DiGraph, solver):
     ''' AND2_X1_ZN gate.
@@ -2474,35 +2498,35 @@ def xnor(inputs: dict, graph: nx.DiGraph, solver):
     """ xnor gate.
 
     Args:
-        inputs: {'I1', 'I2', 'node_name'}.
+        inputs: {'input_0', 'input_1', 'node_name'}.
         graph: The networkx graph of the circuit.
         solver: The SAT solver instance.
 
     Returns:
-        ZN = '!(I1 ^ I2)'.
+        ZN = '!(input_0 ^ input_1)'.
     """
-    p = validate_inputs(inputs, graph, 'xnor')
-    solver.add_clause([-p['I1'], -p['I2'], p['node_name']])
-    solver.add_clause([p['I1'], p['I2'], p['node_name']])
-    solver.add_clause([p['I1'], -p['I2'], -p['node_name']])
-    solver.add_clause([-p['I1'], p['I2'], -p['node_name']])
+    p = validate_generic_inputs(inputs, 3, 'xnor')
+    solver.add_clause([-p['input_0'], -p['input_1'], p['node_name']])
+    solver.add_clause([p['input_0'], p['input_1'], p['node_name']])
+    solver.add_clause([p['input_0'], -p['input_1'], -p['node_name']])
+    solver.add_clause([-p['input_0'], p['input_1'], -p['node_name']])
 
 
 def xor(inputs: dict, graph: nx.DiGraph, solver):
     """ xor gate.
 
     Args:
-        inputs: {'I1', 'I2', 'node_name'}.
+        inputs: {'input_0', 'input_1', 'node_name'}.
         graph: The networkx graph of the circuit.
 
     Returns:
-        ZN = '(I1 ^ I2)'.
+        ZN = '(input_0 ^ input_1)'.
     """
-    p = validate_inputs(inputs, graph, 'xor')
-    solver.add_clause([-p['I1'], -p['I2'], -p['node_name']])
-    solver.add_clause([p['I1'], p['I2'], -p['node_name']])
-    solver.add_clause([p['I1'], -p['I2'], p['node_name']])
-    solver.add_clause([-p['I1'], p['I2'], p['node_name']])
+    p = validate_generic_inputs(inputs, 3, 'xor')
+    solver.add_clause([-p['input_0'], -p['input_1'], -p['node_name']])
+    solver.add_clause([p['input_0'], p['input_1'], -p['node_name']])
+    solver.add_clause([p['input_0'], -p['input_1'], p['node_name']])
+    solver.add_clause([-p['input_0'], p['input_1'], p['node_name']])
 
 
 def and_output(inputs: dict, graph: nx.DiGraph, solver):
@@ -2803,16 +2827,15 @@ def input_formula_Q(inputs: dict, graph: nx.DiGraph, solver):
     """ Sets a input pin to a predefined (0 or 1) value.
 
     Args:
-        inputs: {'I1', 'node_name'}.
+        inputs: {'input_0', 'node_name'}.
         graph: The networkx graph of the circuit.
 
     Returns:
         0 or 1.
     """
+    p = validate_generic_inputs(inputs, 2, "input_formula_Q")
 
-    p = validate_inputs(inputs, graph, 'input_formula')
-
-    if 'one' in inputs['I1'].node:
+    if one == p['input_0']:
         # Input is connected to 1.
         # Return a one.
         solver.add_clause([-one, p['node_name']])
@@ -2828,16 +2851,15 @@ def input_formula_QN(inputs: dict, graph: nx.DiGraph, solver):
     """ Sets a input pin to a predefined (0 or 1) value.
 
     Args:
-        inputs: {'I1', 'node_name'}.
+        inputs: {'input_0', 'node_name'}.
         graph: The networkx graph of the circuit.
 
     Returns:
         0 or 1.
     """
+    p = validate_generic_inputs(inputs, 2, "input_formula_QN")
 
-    p = validate_inputs(inputs, graph, 'input_formula')
-
-    if 'one' in inputs['I1'].node:
+    if one == p['input_0']:
         # Input is connected to 1.
         # Return a zero.
         solver.add_clause([-zero, p['node_name']])
@@ -2853,28 +2875,28 @@ def in_node_Q(inputs: dict, graph: nx.DiGraph, solver):
     """ In node Q
 
     Args:
-        inputs: {'I1', 'node_name'}.
+        inputs: {'input_0', 'node_name'}.
         graph: The networkx graph of the circuit.
 
     Returns:
-        Q = I
+        Q = input_0
     """
-    p = validate_inputs(inputs, graph, 'in_node')
-    solver.add_clause([-p['I1'], p['node_name']])
-    solver.add_clause([p['I1'], -p['node_name']])
+    p = validate_generic_inputs(inputs, 2, "in_node_Q")
+    solver.add_clause([-p['input_0'], p['node_name']])
+    solver.add_clause([p['input_0'], -p['node_name']])
 
 
 def in_node_QN(inputs: dict, graph: nx.DiGraph, solver):
     """ In node QN
 
     Args:
-        inputs: {'I1', 'node_name'}.
+        inputs: {'input_0', 'node_name'}.
         graph: The networkx graph of the circuit.
 
     Returns:
-        Q = !I
+        Q = !input_0
     """
-    p = validate_inputs(inputs, graph, 'in_node')
+    p = validate_generic_inputs(inputs, 2, "in_node_QN")
     solver.add_clause([-p['I1'], -p['node_name']])
     solver.add_clause([p['I1'], p['node_name']])
 
@@ -2883,15 +2905,15 @@ def out_node(inputs: dict, graph: nx.DiGraph, solver):
     """ Out node.
 
     Args:
-        inputs: {'D', 'node_name'}.
+        inputs: {'input_0', 'node_name'}.
         graph: The networkx graph of the circuit.
 
     Returns:
-        ZN = D.
+        ZN = input_0.
     """
-    p = validate_inputs(inputs, graph, 'out_node')
-    solver.add_clause([-p['D'], p['node_name']])
-    solver.add_clause([p['D'], -p['node_name']])
+    p = validate_generic_inputs(inputs, 2, "out_node")
+    solver.add_clause([-p['input_0'], p['node_name']])
+    solver.add_clause([p['input_0'], -p['node_name']])
 
 
 def output(inputs: dict, graph: nx.DiGraph, solver):
@@ -2904,9 +2926,9 @@ def output(inputs: dict, graph: nx.DiGraph, solver):
     Returns:
         ZN = I.
     """
-    p = validate_inputs(inputs, graph, 'output')
-    solver.add_clause([-p['I1'], p['node_name']])
-    solver.add_clause([p['I1'], -p['node_name']])
+    p = validate_generic_inputs(inputs, 2, "output")
+    solver.add_clause([-p['input_0'], p['node_name']])
+    solver.add_clause([p['input_0'], -p['node_name']])
 
 
 cell_mapping = {

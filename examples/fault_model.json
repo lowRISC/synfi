@@ -10,12 +10,12 @@
             },
             "stage_2": {
                 "inputs": ["$auto$simplemap.cc:527:simplemap_adff_sdff$14922"],
-                "outputs": ["rnd_ctr_err_sum(1)"],
+                "outputs": ["rnd_ctr_err_sum"],
                 "type": "output"
             },
             "stage_3": {
                 "inputs": ["$auto$simplemap.cc:527:simplemap_adff_sdff$14922"],
-                "outputs": ["key_expand_round_o(4)_75"],
+                "outputs": ["key_expand_round_o"],
                 "type": "output"
             }
         },
@@ -30,14 +30,26 @@
             "$abc$16637$auto$blifparse.cc:381:parse_blif$16820": ["stage_2"]
         },
         "output_values": {
-          "key_expand_round_o(4)_75": 1
+          "key_expand_round_o": {
+                "O": {
+                    "0": 1
+                }
+          }
         },
         "input_values": {
-            "$auto$simplemap.cc:527:simplemap_adff_sdff$14922": 0
+            "$auto$simplemap.cc:527:simplemap_adff_sdff$14922": {
+                "D": {
+                    "0": 0
+                }
+            }
         },
         "alert_values": 
         {
-            "rnd_ctr_err_sum(1)": 0
+            "rnd_ctr_err_sum": {
+                "O": {
+                    "0": 0
+                }
+            }
         },
         "output_fault_values": 
         {

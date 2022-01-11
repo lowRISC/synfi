@@ -15,7 +15,7 @@ import networkx as nx
 
 import graph_builder
 import helpers
-from helpers import Node, Port
+from helpers import Connection, Node, NodePin, NodePort, Port
 
 """Part of the fault injection framework for the OpenTitan.
 
@@ -38,9 +38,8 @@ def parse_ports(module: dict) -> dict:
         Dict containing all ports.
     """
     ports = {}
-    for port, value in module["ports"].items():
+    for port_name, value in module["ports"].items():
         length = len(value["bits"])
-        port_name = port + "(" + str(length) + ")"
         port = Port(name=port_name,
                     pins=value["bits"],
                     type=value["direction"],
@@ -66,54 +65,14 @@ def parse_wires(module: dict) -> dict:
     return wires
 
 
-def add_connections(connections: list, port: str, name: str,
-                    max_num_connections: int, node_dir: str, node_ports: dict,
-                    wires: dict):
-    """Add the connections to the ports.
-
-    Args:
-        connections: The list of connections for the node.
-        port: The current port.
-        name: The name of the node.
-        max_num_connections: The max number of connection entries.
-        node_dir: The direction (input/output) of the connection.
-        node_ports: The dict to store the connections.
-        wires: The dict to store the wires.
-
-    """
-    num_connections = len(connections)
-    for idx, con in enumerate(connections):
-        if num_connections == max_num_connections:
-            node_name = name + "_" + str(idx)
-            if node_dir == "nodes_in":
-                node_ports[node_name][node_dir][con].append(port)
-                wires[con].append(node_name)
-            else:
-                node_ports[node_name]["nodes_out"][con] = port
-                wires[con] = node_name
-        else:
-            for num in range(0, max_num_connections):
-                node_name = name + "_" + str(num)
-                if node_dir == "nodes_in":
-                    node_ports[node_name][node_dir][con].append(port)
-                    wires[con].append(node_name)
-                else:
-                    node_ports[node_name]["nodes_out"][con] = port
-                    wires[con] = node_name
-
-
 def parse_nodes(module: dict) -> dict:
     """Parses the nodes of the selected module.
 
     Iterates over all nodes in the module and sets the properties of the
-    corresponding node. Each node consists of inputs and outputs in the format:
-    node = [{input,output}, port_name, wire_name]
-    e.g.:
-    node_reg = [input, D, reg_d]
+    corresponding node. Each node consists of input and output ports.
     To track the dependencies between nodes, this function consists of the
-    two dicts in_wires and out_wires. These dicts are in the format:
-    in_wires[reg_d] = [node_reg]
-    and are later used to find the dependencies between two nodes.
+    two dicts in_wires and out_wires which are later used to find the
+    dependencies between two nodes.
 
     Args:
         module: The selected module.
@@ -125,66 +84,41 @@ def parse_nodes(module: dict) -> dict:
     nodes = {}
     in_wires = DefaultDict(list)
     out_wires = {}
-
-    for name, node in module["cells"].items():
+    # Loop over all nodes and add to the nodes dict.
+    for node_name, node in module["cells"].items():
         node_type = node["type"]
-
-        # Get max number of connections for a port.
-        max_num_connections = 0
-        for port, connections in node["connections"].items():
-            if len(connections) > max_num_connections:
-                max_num_connections = len(connections)
-
-        if max_num_connections == 1:
-            # All ports only have a single connection.
-            nodes_in = DefaultDict(list)
-            nodes_out = {}
-            for port, connection in node["connections"].items():
-                if (node["port_directions"][port] == "input"):
-                    nodes_in[connection[0]].append(port)
-                    in_wires[connection[0]].append(name)
+        in_ports = []
+        out_ports = []
+        # Loop over all ports of the current node.
+        for port_name, connections in node["connections"].items():
+            pins = []
+            pin_count = 0
+            port_direction = node["port_directions"][port_name]
+            # Loop over all pins of the current port.
+            for wire in node["connections"][port_name]:
+                pin = NodePin(number=pin_count, wire=wire)
+                pins.append(pin)
+                if port_direction == "input":
+                    in_wires[wire].append(node_name)
                 else:
-                    nodes_out[connection[0]] = port
-                    out_wires[connection[0]] = name
-            # Add the node to the dict.
-            nodes[name] = Node(name=name,
-                               parent_name=name,
-                               type=node_type,
-                               inputs=nodes_in,
-                               outputs=nodes_out,
-                               stage="",
-                               node_color="black")
-        else:
-            # Some ports have multiple connections. Split the node and connect
-            # each port.
-            node_ports = {}
-            for num in range(0, max_num_connections):
-                node_name = name + "_" + str(num)
-                node_ports[node_name] = {}
-                node_ports[node_name]["nodes_in"] = DefaultDict(list)
-                node_ports[node_name]["nodes_out"] = {}
+                    out_wires[wire] = node_name
+                pin_count += 1
+            # Set the port direction and add the port to the node.
+            if (node["port_directions"][port_name] == "input"):
+                in_ports.append(
+                    NodePort(type="input", name=port_name, pins=pins))
+            else:
+                out_ports.append(
+                    NodePort(type="output", name=port_name, pins=pins))
 
-            for port, connections in node["connections"].items():
-                if (node["port_directions"][port] == "input"):
-                    add_connections(connections, port, name,
-                                    max_num_connections, "nodes_in",
-                                    node_ports, in_wires)
-                else:
-                    add_connections(connections, port, name,
-                                    max_num_connections, "nodes_out",
-                                    node_ports, out_wires)
-
-            # Add the nodes to the node dict.
-            for num in range(0, max_num_connections):
-                node_name = name + "_" + str(num)
-                nodes[node_name] = Node(
-                    name=node_name,
-                    parent_name=node_name,
-                    type=node_type,
-                    inputs=node_ports[node_name]["nodes_in"],
-                    outputs=node_ports[node_name]["nodes_out"],
-                    stage="",
-                    node_color="black")
+        # Add the node to the dict.
+        nodes[node_name] = Node(name=node_name,
+                                parent_name=node_name,
+                                type=node_type,
+                                in_ports=in_ports,
+                                out_ports=out_ports,
+                                stage="",
+                                node_color="black")
 
     return (nodes, in_wires, out_wires)
 
@@ -200,64 +134,54 @@ def create_connections(in_wires: dict, out_wires: dict) -> list:
         out_wires: Output wires of a node. out_wires[wire_name] = node_name
 
     Returns:
-        Connections in the format (node1, node2, wire_name).
+        Connections in the format (node_in, node_out, wire).
     """
 
     connections = []
     for out_wire, node_name in out_wires.items():
         if (out_wire in in_wires):
             for node in in_wires[out_wire]:
-                connections.append((node_name, node, out_wire))
+                connections.append(
+                    Connection(node_in=node, node_out=node_name,
+                               wire=out_wire))
 
     return connections
 
 
-def add_pins(ports: dict, nodes: dict, in_wires: dict,
-             out_wires: dict) -> None:
-    """Adds pins to the list of nodes.
-
-    A port(N) consists of N 1-bit pins. For each of these pins, this
-    function creates a new node and connects the pin with the port.
+def add_ports(ports: dict, nodes: dict, in_wires: dict,
+              out_wires: dict) -> None:
+    """Add the module ports to the dict of nodes.
 
     Args:
         ports: The parsed ports.
+        in_wires: The auxiliary dict to track the input wires.
+        out_wires: The auxiliary dict to track the output wires. 
     """
-
+    # Loop over all in/out ports of the module and add to the node dict.
     for port_name, port in ports.items():
-        port_in_pin = {}
-        port_out_pin = {}
-        for pin in port.pins:
-            pin_name = port_name + "_" + str(pin)
-            wire_name = "wire_" + port_name + "_" + str(pin)
-            # The inputs and outputs of the pin node.
+        in_ports = []
+        out_ports = []
+        pins = []
+        pin_count = 0
+        # Add the in/out connections of the current port.
+        for pin_wire in port.pins:
+            pin = NodePin(number=pin_count, wire=pin_wire)
+            pins.append(pin)
+            pin_count += 1
             if port.type == "input":
-                in_wires[wire_name].append(pin_name)
-                out_wires[pin] = pin_name
-                out_wires[wire_name] = port_name
-                inp_pin = wire_name
-                outp_pin = pin
-                port_out_pin[wire_name] = "O"
+                out_wires[pin_wire] = port_name
+                out_ports.append(
+                    NodePort(type="output", name=port_name, pins=pins))
             else:
-                in_wires[pin].append(pin_name)
-                out_wires[wire_name] = pin_name
-                in_wires[wire_name].append(port_name)
-                inp_pin = pin
-                outp_pin = wire_name
-                port_in_pin[wire_name] = ["I1"]
-            # Add pin to node dict.
-            nodes[pin_name] = Node(name=pin_name,
-                                   parent_name=pin_name,
-                                   type=port.type,
-                                   inputs={inp_pin: ["I1"]},
-                                   outputs={outp_pin: "O"},
-                                   stage="",
-                                   node_color="black")
-        # Add port to node dict.
+                in_wires[pin_wire].append(port_name)
+                in_ports.append(
+                    NodePort(type="input", name=port_name, pins=pins))
+        # Add the port to the dict.
         nodes[port_name] = Node(name=port_name,
                                 parent_name=port_name,
                                 type=port.type,
-                                inputs=port_in_pin,
-                                outputs=port_out_pin,
+                                in_ports=in_ports,
+                                out_ports=out_ports,
                                 stage="",
                                 node_color="black")
 
@@ -275,34 +199,17 @@ def add_nodes(module: dict, ports: dict) -> Tuple[list, dict]:
     Returns:
         Dict containing all nodes and the connection list.
     """
-
+    # Node storage dict.
     nodes = {}
+    # Auxiliary variables used to connect the nodes.
     in_wires = DefaultDict(list)
     out_wires = {}
-
-    # Add null/one nodes for gates with a 0/1 as input.
-    nodes["null"] = Node(name="null",
-                         parent_name="null",
-                         type="null_node",
-                         inputs={},
-                         outputs={'0': "O"},
-                         stage="",
-                         node_color="black")
-    out_wires['0'] = "null"
-    nodes["one"] = Node(name="one",
-                        parent_name="one",
-                        type="one_node",
-                        inputs={},
-                        outputs={'1': "O"},
-                        stage="",
-                        node_color="black")
-    out_wires['1'] = "one"
 
     # Read the netlist and add nodes.
     nodes, in_wires, out_wires = parse_nodes(module)
 
     # Create pins for each port and add to dict of nodes.
-    add_pins(ports, nodes, in_wires, out_wires)
+    add_ports(ports, nodes, in_wires, out_wires)
 
     # Connect the nodes.
     connections = create_connections(in_wires, out_wires)
@@ -366,7 +273,7 @@ def parse_arguments(argv):
     return args
 
 
-def write_circuit(graph: nx.DiGraph,
+def write_circuit(graph: nx.MultiDiGraph,
                   outfile: Path,
                   debug: bool = False) -> None:
     """ Writes the circuit to a pickle file.
@@ -402,7 +309,7 @@ def main(argv=None):
     tstp_begin = time.time()
     args = parse_arguments(argv)
 
-    graph = nx.DiGraph()
+    graph = nx.MultiDiGraph()
 
     # Open the JSON netlist, parse the module, the ports, and the wires.
     module = open_module(args)
