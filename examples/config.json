@@ -1,6 +1,4 @@
 {
-    "clk": "'clk_i'",
-    "rst": "'rst_ni'",
     "reg": "{'DFFS_X1', 'DFFR_X1'}",
     "exclude_cells": ["DFF", "DLL", "DLH", "TLAT"],
     "pin_in_mapping": {
