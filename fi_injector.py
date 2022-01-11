@@ -24,7 +24,7 @@ import numpy
 import ray
 
 import helpers
-from helpers import Node
+from helpers import Edge, Node
 from injector_class import FiInjector
 
 """Part of the fault injection framework for the OpenTitan.
@@ -149,7 +149,7 @@ def open_fi_models(args) -> dict:
     return fi_models["fimodels"]
 
 
-def read_circuit(file: Path) -> nx.DiGraph:
+def read_circuit(file: Path) -> nx.MultiDiGraph:
     """ Opens the circuit in the pickle file.
 
     Args:
@@ -158,13 +158,13 @@ def read_circuit(file: Path) -> nx.DiGraph:
     Returns:
         The graph stored in the pickle file.
     """
-    graph = nx.DiGraph()
+    graph = nx.MultiDiGraph()
     with open(file, 'rb') as f:
         graph = pickle.load(f)
     return graph
 
 
-def fault_combinations(graph: nx.DiGraph, fault_locations: list,
+def fault_combinations(graph: nx.MultiDiGraph, fault_locations: list,
                        fi_model: dict, fault_limit: int) -> list:
     """ Calculates all possible fault location combinations based on the model.
 
@@ -173,7 +173,7 @@ def fault_combinations(graph: nx.DiGraph, fault_locations: list,
     generates a list of all possible combinations of these parameters.
 
     Args:
-        graph: The networkx digraph of the circuit.
+        graph: The networkxmultidigraph of the circuit.
         fault_locations: The list of all fault locations.
         fi_model: The active fault model.
         fault_limit: The max number of fault locations.
@@ -220,7 +220,7 @@ def fault_combinations(graph: nx.DiGraph, fault_locations: list,
     return fl_list
 
 
-def get_registers(graph: nx.DiGraph, cell_lib: types.ModuleType) -> list:
+def get_registers(graph: nx.MultiDiGraph, cell_lib: types.ModuleType) -> list:
     """Finds all registers in the graph.
 
     Args:
@@ -238,13 +238,13 @@ def get_registers(graph: nx.DiGraph, cell_lib: types.ModuleType) -> list:
 
 
 @ray.remote
-def extract_graph_between_nodes(graph: nx.DiGraph, stages: list,
+def extract_graph_between_nodes(graph: nx.MultiDiGraph, stages: list,
                                 stage_name: str, cell_lib: types.ModuleType,
-                                fi_model: dict) -> nx.DiGraph:
+                                fi_model: dict) -> nx.MultiDiGraph:
     """ Extract the subgraph between two nodes.
 
     Args:
-        graph: The networkx digraph of the circuit.
+        graph: The networkx multidigraph of the circuit.
         stages: The list of stages.
         stage_name: The current stage.
         cell_lib: The imported cell library.
@@ -296,15 +296,15 @@ def extract_graph_between_nodes(graph: nx.DiGraph, stages: list,
     return nx.compose_all(graphs_between_nodes)
 
 
-def reconnect_node(graph: nx.DiGraph, node: str, node_new: str,
-                   in_out: str) -> nx.DiGraph:
+def reconnect_node(graph: nx.MultiDiGraph, node: str, node_new: str,
+                   in_out: str) -> nx.MultiDiGraph:
     """ Reconnect a node in the graph.
 
     Reconnects the node "node" in the graph by removing the input/output edges
     and add a new edge for the node "node_new".
 
     Args:
-        graph: The networkx digraph of the circuit.
+        graph: The networkx multidigraph of the circuit.
         node: The node to be reconnected.
         node_new: The new node.
         in_out: Replace input or output edge?
@@ -319,37 +319,29 @@ def reconnect_node(graph: nx.DiGraph, node: str, node_new: str,
             remove_edges.append((edge[0], edge[1]))
         # Remove the output edges and reconnect with the new node.
         for remove_edge in remove_edges:
-            edge_data = graph.get_edge_data(remove_edge[0], remove_edge[1])
+            edge_data = graph.get_edge_data(remove_edge[0], remove_edge[1])[0]
+            graph.add_edge(node_new, remove_edge[1], edge=(edge_data["edge"]))
             graph.remove_edge(remove_edge[0], remove_edge[1])
-            graph.add_edge(node_new,
-                           remove_edge[1],
-                           name=(edge_data["name"]),
-                           out_pin=(edge_data["out_pin"]),
-                           in_pin=(edge_data["in_pin"]))
     else:
         # Find the input edges of register_node and add to list.
         for edge in graph.in_edges(graph.nodes[node]["node"].name):
             remove_edges.append((edge[0], edge[1]))
 
         for remove_edge in remove_edges:
-            edge_data = graph.get_edge_data(remove_edge[0], remove_edge[1])
+            edge_data = graph.get_edge_data(remove_edge[0], remove_edge[1])[0]
+            graph.add_edge(remove_edge[0], node_new, edge=(edge_data["edge"]))
             graph.remove_edge(remove_edge[0], remove_edge[1])
-            graph.add_edge(remove_edge[0],
-                           node_new,
-                           name=(edge_data["name"]),
-                           out_pin=(edge_data["out_pin"]),
-                           in_pin=(edge_data["in_pin"]))
 
     return graph
 
 
-def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
+def set_in_out_nodes(graph: nx.MultiDiGraph, node_in: str, node_out: str,
                      rename_string: str, fi_model: dict,
-                     stage: str) -> nx.DiGraph:
+                     stage: str) -> nx.MultiDiGraph:
     """ Add the input and output nodes of the subgraph.
 
     Args:
-        graph: The networkx digraph of the circuit.
+        graph: The networkx multidigraph of the circuit.
         node_in: The input node.
         node_out: The output node.
         rename_string: The suffix, which is appended to the original node name.
@@ -408,8 +400,8 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
                 Node(name=node_in_name_mod,
                      parent_name=node_in,
                      type=in_node_type,
-                     inputs={},
-                     outputs={},
+                     in_ports=graph.nodes[node_in_name]["node"].in_ports,
+                     out_ports=graph.nodes[node_in_name]["node"].out_ports,
                      stage=stage,
                      node_color=in_color)
             })
@@ -419,19 +411,11 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
                 Node(name=node_out_name_mod,
                      parent_name=node_out,
                      type=out_node_type,
-                     inputs={},
-                     outputs={},
+                     in_ports=graph.nodes[node_out_name]["node"].in_ports,
+                     out_ports=graph.nodes[node_out_name]["node"].out_ports,
                      stage=stage,
                      node_color=out_color)
             })
-        graph.nodes[node_in_name_mod]["node"].outputs = graph.nodes[
-            node_in_name]["node"].outputs
-        graph.nodes[node_in_name_mod]["node"].inputs = graph.nodes[
-            node_in_name]["node"].inputs
-        graph.nodes[node_out_name_mod]["node"].inputs = graph.nodes[
-            node_out_name]["node"].inputs
-        graph.nodes[node_out_name_mod]["node"].outputs = graph.nodes[
-            node_out_name]["node"].outputs
         # Connect the new nodes with the corresponding edges.
         graph = reconnect_node(graph, node_in_name, node_in_name_mod, "out")
         graph = reconnect_node(graph, node_out_name, node_out_name_mod, "in")
@@ -440,41 +424,15 @@ def set_in_out_nodes(graph: nx.DiGraph, node_in: str, node_out: str,
         graph.nodes[node_in_name]["node"].type = in_node_type
         graph.nodes[node_in_name]["node"].node_color = in_color
         # Set type and color of the output node.
-        if len(graph.in_edges(node_out_name)) != 1:
-            # We have multiple inputs for the output node. Add new output node
-            # and connect.
-            node_out_name_mod = node_out + "_outnew" + rename_string
-            graph.add_node(
-                node_out_name_mod, **{
-                    "node":
-                    Node(name=node_out_name_mod,
-                         parent_name=node_out,
-                         type=out_node_type,
-                         inputs={0: ["I1"]},
-                         outputs=graph.nodes[node_out_name]["node"].outputs,
-                         stage=stage,
-                         node_color=out_color)
-                })
-            out_pin = list(
-                graph.nodes[node_out_name]["node"].outputs.values())[0]
-            graph.add_edge(node_out_name,
-                           node_out_name_mod,
-                           name="out_wire",
-                           out_pin=out_pin,
-                           in_pin=["I1"])
-        else:
-            graph.nodes[node_out_name]["node"].type = out_node_type
-            graph.nodes[node_out_name]["node"].node_color = out_color
-            # Make sure that the input pin of the output port is "I1".
-            if out_node_type == "output":
-                for edge in graph.in_edges(node_out_name):
-                    graph[edge[0]][edge[1]]["in_pin"] = ["I1"]
+        graph.nodes[node_out_name]["node"].type = out_node_type
+        graph.nodes[node_out_name]["node"].node_color = out_color
 
     return graph
 
 
-def add_in_nodes(graph: nx.DiGraph, subgraph: nx.DiGraph, in_nodes: list,
-                 rename_string: str, stage: str) -> nx.DiGraph:
+def add_in_nodes(graph: nx.MultiDiGraph, subgraph: nx.MultiDiGraph,
+                 in_nodes: list, rename_string: str,
+                 stage: str) -> nx.MultiDiGraph:
     """ Add the missing input nodes to the target subgraph.
 
     The extracted graph is a subgraph of the original graph only
@@ -482,7 +440,7 @@ def add_in_nodes(graph: nx.DiGraph, subgraph: nx.DiGraph, in_nodes: list,
     of the gates in this subgraph are missing and added in this function.
 
     Args:
-        graph: The original digraph of the circuit.
+        graph: The original multidigraph of the circuit.
         subgraph: The extracted target graph.
         in_nodes: The input nodes of the extracted target graph.
         rename_string: The suffix, which is appended to the original node name.
@@ -500,33 +458,31 @@ def add_in_nodes(graph: nx.DiGraph, subgraph: nx.DiGraph, in_nodes: list,
     # Loop over all nodes of the target subgraph and add missing inp. nodes.
     filter_types = {"in_node", "out_node", "input", "output"}
     for node, node_attribute in subgraph.nodes(data=True):
-        if (len(subgraph.in_edges(node)) != len(node_attribute["node"].inputs)
-            ) and (node_attribute["node"].type
-                   not in filter_types) and (node not in in_nodes_renamed):
+        if (len(subgraph.in_edges(node)) < len(
+                orig_graph.in_edges(node_attribute["node"].parent_name))) and (
+                    node_attribute["node"].type
+                    not in filter_types) and (node not in in_nodes_renamed):
             # Get all in edges of the subgraph.
-            subgraph_in_edges = subgraph.in_edges(node)
             subgraph_in_edges_name = []
-            for edge in subgraph_in_edges:
+            for node_out, node_in in subgraph.in_edges(node):
                 subgraph_in_edges_name.append(
-                    subgraph.nodes[edge[0]]["node"].parent_name)
+                    subgraph.nodes[node_out]["node"].parent_name)
             # Determine missing in edges of the subgraph.
             current_node = node_attribute["node"].parent_name
-            for edge in orig_graph.in_edges(current_node):
-                if edge[0] not in subgraph_in_edges_name:
+            for node_out, node_in in orig_graph.in_edges(current_node):
+                if node_out not in subgraph_in_edges_name:
                     # Name of the new node.
-                    node_name = edge[0] + rename_string
+                    node_name = node_out + rename_string
                     # Edge data (name, in_pin, out_pin) of the original edge.
-                    edge_data = orig_graph.get_edge_data(edge[0], edge[1])
+                    edge_data = orig_graph.get_edge_data(node_out, node_in)[0]
                     # The node attribute of the original graph.
-                    node_attr = orig_graph.nodes[edge[0]]["node"]
+                    node_attr = orig_graph.nodes[node_out]["node"]
                     # Add new node and connect.
                     subgraph_in_nodes.add_node(node_name,
                                                **{"node": node_attr})
                     subgraph_in_nodes.add_edge(node_name,
                                                node,
-                                               name=(edge_data["name"]),
-                                               out_pin=(edge_data["out_pin"]),
-                                               in_pin=(edge_data["in_pin"]))
+                                               edge=edge_data["edge"])
                     # Modify the attributes of the new node.
                     subgraph_in_nodes.nodes[node_name][
                         "node"].node_color = "blue"
@@ -537,14 +493,15 @@ def add_in_nodes(graph: nx.DiGraph, subgraph: nx.DiGraph, in_nodes: list,
     return subgraph_in_nodes
 
 
-def connect_graphs(graph: nx.DiGraph, subgraph: nx.DiGraph) -> nx.DiGraph:
+def connect_graphs(graph: nx.MultiDiGraph,
+                   subgraph: nx.MultiDiGraph) -> nx.MultiDiGraph:
     """ Connect the subgraphs in the target graph.
 
-    The target graph consists of several subgraphs with a input and output node.
-    This function connects these in/out nodes between the subgraphs.
+    The target graph consists of several subgraphs with an input and output
+    node. This function connects these in/out nodes between the subgraphs.
 
     Args:
-        graph: The original digraph of the circuit.
+        graph: The original multidigraph of the circuit.
         subgraph: The extracted target graph.
     Returns:
         The extracted target graph with the connected subgraphs.
@@ -559,7 +516,6 @@ def connect_graphs(graph: nx.DiGraph, subgraph: nx.DiGraph) -> nx.DiGraph:
             in_nodes[node_attribute["node"].parent_name].append(node)
         elif node_attribute["node"].type == "out_node":
             out_nodes[node_attribute["node"].parent_name].append(node)
-
     # Connect the output node of subgraph 1 with the input node of subgraph 2.
     for parent_node, nodes_out in out_nodes.items():
         nodes_in = in_nodes[parent_node]
@@ -568,25 +524,33 @@ def connect_graphs(graph: nx.DiGraph, subgraph: nx.DiGraph) -> nx.DiGraph:
                 # Avoid to create a loop between nodes in the same stage.
                 if subgraph.nodes[node_in]["node"].stage != subgraph.nodes[
                         node_out]["node"].stage:
-                    # Get the first output pin.
-                    pin = list(
-                        subgraph.nodes[node_out]["node"].outputs.values())[0]
-                    subgraph_connected.add_edge(node_out,
-                                                node_in,
-                                                name=node_out + "_" + node_in,
-                                                out_pin=pin,
-                                                in_pin=["I1"])
+                    # Find all edges between node_out and node_in
+                    edges = []
+                    for port in subgraph.nodes[node_out]["node"].out_ports:
+                        for pin in port.pins:
+                            edges.append(
+                                Edge(in_port=port.name,
+                                     in_pin=pin.number,
+                                     out_port=port.name,
+                                     out_pin=pin.number,
+                                     wire=pin.wire))
+                    # Connect node_out and node_in using the edge data.
+                    for edge in edges:
+                        subgraph_connected.add_edge(node_out,
+                                                    node_in,
+                                                    edge=edge)
     return subgraph_connected
 
 
-def extract_stage_graphs(graph: nx.DiGraph, fi_model: dict, stage_name: str,
-                         cell_lib: types.ModuleType, num_cores: int) -> list:
+def extract_stage_graphs(graph: nx.MultiDiGraph, fi_model: dict,
+                         stage_name: str, cell_lib: types.ModuleType,
+                         num_cores: int) -> list:
     """ Extract the stage graph.
 
     The stage graph is the graph between two nodes defined by the fault model.
 
     Args:
-        graph: The networkx digraph of the circuit.
+        graph: The networkxmultidigraph of the circuit.
         fi_model: The active fault model.
         stage_name: The name of the current stage.
         cell_lib: The imported cell library.
@@ -625,15 +589,16 @@ def extract_stage_graphs(graph: nx.DiGraph, fi_model: dict, stage_name: str,
     return nx.compose_all(stage_graphs)
 
 
-def extract_graph(graph: nx.DiGraph, fi_model: dict,
-                  cell_lib: types.ModuleType, num_cores: int) -> nx.DiGraph:
+def extract_graph(graph: nx.MultiDiGraph, fi_model: dict,
+                  cell_lib: types.ModuleType,
+                  num_cores: int) -> nx.MultiDiGraph:
     """ Extract the subgraph containing all comb. and seq. logic of interest.
 
     The subgraphs between all input and output nodes defined in the fault model
     are created and merged into the extracted graph.
 
     Args:
-        graph: The networkx digraph of the circuit.
+        graph: The networkxmultidigraph of the circuit.
         fi_model: The active fault model.
         cell_lib: The imported cell library.
         num_cores: The number of cores to use for the FI.
@@ -650,6 +615,7 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict,
         stage_name = stage
         stage_graph = extract_stage_graphs(subgraph, fi_model, stage_name,
                                            cell_lib, num_cores)
+
         # Rename the nodes to break dependencies between target graphs.
         rename_string = ("_" + stage_name)
         stage_graph = helpers.rename_nodes(stage_graph, rename_string, False)
@@ -659,7 +625,6 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict,
             node_out = fi_model["stages"][stage_name]["outputs"][cnt]
             stage_graph = set_in_out_nodes(stage_graph, node_in, node_out,
                                            rename_string, fi_model, stage)
-
         # Add missing input nodes for the gates.
         stage_graph = add_in_nodes(graph, stage_graph,
                                    fi_model["stages"][stage_name]["inputs"],
@@ -673,8 +638,9 @@ def extract_graph(graph: nx.DiGraph, fi_model: dict,
     return extracted_graph
 
 
-def evaluate_fault_results(results: list, fi_model: dict, graph: nx.DiGraph,
-                           target_graph: nx.DiGraph,
+def evaluate_fault_results(results: list, fi_model: dict,
+                           graph: nx.MultiDiGraph,
+                           target_graph: nx.MultiDiGraph,
                            cell_lib: types.ModuleType) -> None:
     """ Prints the result of the fault attack.
 
@@ -685,7 +651,7 @@ def evaluate_fault_results(results: list, fi_model: dict, graph: nx.DiGraph,
     Args:
         results: The results of the fault attack.
         fi_model_name: The name of the active fault model.
-        graph: The networkx digraph of the circuit.
+        graph: The networkxmultidigraph of the circuit.
         target_graph: The extracted target graph.
         cell_lib: The imported cell library.
 
@@ -708,7 +674,7 @@ def evaluate_fault_results(results: list, fi_model: dict, graph: nx.DiGraph,
                 else:
                     ineffective_faults += 1
     # Calculate and print stats.
-    total_faults = effective_faults_comb + effective_faults_comb + ineffective_faults
+    total_faults = effective_faults_comb + effective_faults_seq + ineffective_faults
     effective_faults_comb_percent = round(
         (effective_faults_comb / total_faults) * 100, 2)
     effective_faults_seq_percent = round(
@@ -719,7 +685,7 @@ def evaluate_fault_results(results: list, fi_model: dict, graph: nx.DiGraph,
     logger.info(helpers.header)
 
 
-def gen_fault_locations(fi_model: dict, graph: nx.DiGraph,
+def gen_fault_locations(fi_model: dict, graph: nx.MultiDiGraph,
                         cell_lib: types.ModuleType) -> dict:
     """ Automatically generate the fault locations.
 
@@ -728,7 +694,7 @@ def gen_fault_locations(fi_model: dict, graph: nx.DiGraph,
 
     Args:
         fi_model: The active fault model.
-        graph: The networkx digraph of the circuit.
+        graph: The networkxmultidigraph of the circuit.
         cell_lib: The imported cell library.
 
     Returns:
@@ -756,7 +722,8 @@ def gen_fault_locations(fi_model: dict, graph: nx.DiGraph,
     return fault_locations
 
 
-def handle_fault_locations(auto_fl: bool, fi_model: dict, graph: nx.DiGraph,
+def handle_fault_locations(auto_fl: bool, fi_model: dict,
+                           graph: nx.MultiDiGraph,
                            cell_lib: types.ModuleType) -> dict:
     """ Automatically generate the fault locations.
 
@@ -767,7 +734,7 @@ def handle_fault_locations(auto_fl: bool, fi_model: dict, graph: nx.DiGraph,
     Args:
         auto_fl: Autogenerate the fault locations?
         fi_model: The active fault model.
-        graph: The networkx digraph of the circuit.
+        graph: The networkxmultidigraph of the circuit.
         cell_lib: The imported cell library.
 
     Returns:
@@ -801,7 +768,7 @@ def handle_fault_locations(auto_fl: bool, fi_model: dict, graph: nx.DiGraph,
     return fault_locations
 
 
-def write_target_graph(graph: nx.DiGraph,
+def write_target_graph(graph: nx.MultiDiGraph,
                        outfile: Path,
                        store_target: bool = False) -> None:
     """ Writes the target graph to a pickle file.
@@ -817,9 +784,9 @@ def write_target_graph(graph: nx.DiGraph,
             pickle.dump(graph, f)
 
 
-def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
-                       num_cores: int, auto_fl: bool, fault_limit: int,
-                       sim_faults: int, store_target: bool,
+def handle_fault_model(graph: nx.MultiDiGraph, fi_model_name: str,
+                       fi_model: dict, num_cores: int, auto_fl: bool,
+                       fault_limit: int, sim_faults: int, store_target: bool,
                        target_graph_stored: Path,
                        cell_lib: types.ModuleType) -> list:
     """ Handles each fault model of the fault model specification file.
@@ -830,7 +797,7 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
     solver.
 
     Args:
-        graph: The networkx digraph of the circuit.
+        graph: The networkxmultidigraph of the circuit.
         fi_model_name: The name of the active fault model.
         fi_model: The active fault model.
         num_cores: The number of cores to use for the FI.
@@ -880,8 +847,8 @@ def handle_fault_model(graph: nx.DiGraph, fi_model_name: str, fi_model: dict,
 
     # Use ray to distribute fault injection to num_cores processes.
     workers = [
-        FiInjector.remote(fi_model_name, target_graph, fl_share, fi_model,
-                          cell_lib) for fl_share in fl_shares
+        FiInjector.remote(fi_model_name, target_graph, graph, fl_share,
+                          fi_model, cell_lib) for fl_share in fl_shares
     ]
 
     # Perform the attack and collect the results.
