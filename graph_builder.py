@@ -18,7 +18,7 @@ This module provides functions to build the graph of the netlist.
 logger = logging.getLogger(__name__)
 
 
-def add_nodes(nodes: dict, graph: nx.DiGraph) -> None:
+def add_nodes(nodes: dict, graph: nx.MultiDiGraph) -> None:
     """Add nodes to the graph.
 
     Args:
@@ -30,7 +30,7 @@ def add_nodes(nodes: dict, graph: nx.DiGraph) -> None:
 
 
 def add_edges(nodes: dict, connections: list, wires: dict,
-              graph: nx.DiGraph) -> None:
+              graph: nx.MultiDiGraph) -> None:
     """Add edges to the graph.
 
     Args:
@@ -47,28 +47,29 @@ def add_edges(nodes: dict, connections: list, wires: dict,
                     out_pin=0,
                     wire=connection.wire)
         for in_port in nodes[connection.node_in].in_ports:
-            for pin in in_port.pins:
-                if pin.wire == connection.wire:
-                    edge.in_pin = pin.number
-                    edge.in_port = in_port.name
-                    break
+            if in_port.name == connection.port_in:
+                for pin in in_port.pins:
+                    if pin.wire == connection.wire:
+                        edge.in_pin = pin.number
+                        edge.in_port = in_port.name
+                        break
         for out_port in nodes[connection.node_out].out_ports:
             for pin in out_port.pins:
                 if pin.wire == connection.wire:
                     edge.out_pin = pin.number
                     edge.out_port = out_port.name
                     break
+
         if not edge.in_port or not edge.out_port:
             logger.error(
                 f"Could not resolve connection between node {connection.node_out} and {connection.node_in}."
             )
             sys.exit()
-
         graph.add_edge(connection.node_out, connection.node_in, edge=edge)
 
 
 def build_graph(nodes: dict, connections: list, wires: dict,
-                graph: nx.DiGraph) -> None:
+                graph: nx.MultiDiGraph) -> None:
     """Creates the graph of the circuit.
 
     Build graph by adding nodes and edges to the graph.
@@ -83,7 +84,7 @@ def build_graph(nodes: dict, connections: list, wires: dict,
     add_edges(nodes, connections, wires, graph)
 
 
-def write_dot_graph(graph: nx.DiGraph, file_name: Path) -> None:
+def write_dot_graph(graph: nx.MultiDiGraph, file_name: Path) -> None:
     """Dumps the graph of the circuit as a .dot file.
 
     Args:

@@ -90,11 +90,10 @@ class FiInjector:
                         port.name = in_port_mapping[port.name]
                     # Update port name in the edge.
                     for edge_out, edge_in in faulty_graph.in_edges(node):
-                        faulty_graph.get_edge_data(
-                            edge_out,
-                            edge_in)[0]["edge"].in_port = in_port_mapping[
-                                faulty_graph.get_edge_data(
-                                    edge_out, edge_in)[0]["edge"].in_port]
+                        for edge_num, edge_data in faulty_graph.get_edge_data(
+                                edge_out, edge_in).items():
+                            edge_data["edge"].in_port = in_port_mapping[
+                                edge_data["edge"].in_port]
                 # Update the output port.
                 gate_out_type_current = self.cell_lib.gate_out_type[
                     current_type]
@@ -109,11 +108,10 @@ class FiInjector:
                         port.name = out_port_mapping[port.name]
                     # Update port name in the edge.
                     for edge_out, edge_in in faulty_graph.out_edges(node):
-                        faulty_graph.get_edge_data(
-                            edge_out,
-                            edge_in)[0]["edge"].out_port = out_port_mapping[
-                                faulty_graph.get_edge_data(
-                                    edge_out, edge_in)[0]["edge"].out_port]
+                        for edge_num, edge_data in faulty_graph.get_edge_data(
+                                edge_out, edge_in).items():
+                            edge_data["edge"].out_port = in_port_mapping[
+                                edge_data["edge"].out_port]
 
         return faulty_graph
 
@@ -134,9 +132,10 @@ class FiInjector:
                     if pin.number == int(pin_number):
                         return
 
-        logger.error(f"Provided port/pin {port_name}/{pin_number} for node {node} not found.")
+        logger.error(
+            f"Provided port/pin {port_name}/{pin_number} for node {node} not found."
+        )
         sys.exit()
-
 
     def _add_in_logic(self, diff_graph):
         """ Add the input logic to the differential graph.

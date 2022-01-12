@@ -30,6 +30,7 @@ header = "-" * int(TERMINAL_COLS)
 class Connection:
     node_out: str
     node_in: int
+    port_in: str
     wire: str
 
 

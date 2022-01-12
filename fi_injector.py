@@ -312,26 +312,41 @@ def reconnect_node(graph: nx.MultiDiGraph, node: str, node_new: str,
         The subgraph with the reconnected node.
     """
     remove_edges = []
-
+    remove_edges_dup = []
     if in_out == "out":
         # Find all output edges of node.
-        for edge in graph.out_edges(graph.nodes[node]["node"].name):
-            remove_edges.append((edge[0], edge[1]))
-        # Remove the output edges and reconnect with the new node.
-        for remove_edge in remove_edges:
-            edge_data = graph.get_edge_data(remove_edge[0], remove_edge[1])[0]
-            graph.add_edge(node_new, remove_edge[1], edge=(edge_data["edge"]))
-            graph.remove_edge(remove_edge[0], remove_edge[1])
+        for edge_out, edge_in in graph.out_edges(
+                graph.nodes[node]["node"].name):
+            remove_edges_dup.append((edge_out, edge_in))
+        # Remove duplicates.
+        remove_edges = list(set(remove_edges_dup))
+        # Reconnect edges with the new node.
+        for remove_edge_out, remove_edge_in in remove_edges:
+            for edge_num, edge_data in graph.get_edge_data(
+                    remove_edge_out, remove_edge_in).items():
+                graph.add_edge(node_new,
+                               remove_edge_in,
+                               edge=(edge_data["edge"]))
+        # Remove the edges.
+        for remove_edge_out, remove_edge_in in remove_edges_dup:
+            graph.remove_edge(remove_edge_out, remove_edge_in)
     else:
         # Find the input edges of register_node and add to list.
-        for edge in graph.in_edges(graph.nodes[node]["node"].name):
-            remove_edges.append((edge[0], edge[1]))
-
-        for remove_edge in remove_edges:
-            edge_data = graph.get_edge_data(remove_edge[0], remove_edge[1])[0]
-            graph.add_edge(remove_edge[0], node_new, edge=(edge_data["edge"]))
-            graph.remove_edge(remove_edge[0], remove_edge[1])
-
+        for edge_out, edge_in in graph.in_edges(
+                graph.nodes[node]["node"].name):
+            remove_edges_dup.append((edge_out, edge_in))
+        # Remove duplicates.
+        remove_edges = list(set(remove_edges_dup))
+        # Reconnect edges with the new node.
+        for remove_edge_out, remove_edge_in in remove_edges:
+            for edge_num, edge_data in graph.get_edge_data(
+                    remove_edge_out, remove_edge_in).items():
+                graph.add_edge(remove_edge_out,
+                               node_new,
+                               edge=(edge_data["edge"]))
+        # Remove the edges.
+        for remove_edge_out, remove_edge_in in remove_edges_dup:
+            graph.remove_edge(remove_edge_out, remove_edge_in)
     return graph
 
 
@@ -473,16 +488,18 @@ def add_in_nodes(graph: nx.MultiDiGraph, subgraph: nx.MultiDiGraph,
                 if node_out not in subgraph_in_edges_name:
                     # Name of the new node.
                     node_name = node_out + rename_string
-                    # Edge data (name, in_pin, out_pin) of the original edge.
-                    edge_data = orig_graph.get_edge_data(node_out, node_in)[0]
                     # The node attribute of the original graph.
                     node_attr = orig_graph.nodes[node_out]["node"]
-                    # Add new node and connect.
+                    # Add new node.
                     subgraph_in_nodes.add_node(node_name,
                                                **{"node": node_attr})
-                    subgraph_in_nodes.add_edge(node_name,
-                                               node,
-                                               edge=edge_data["edge"])
+                    # Edge data of the original edge.
+                    for edge_num, edge_data in orig_graph.get_edge_data(
+                            node_out, node_in).items():
+                        # Connect the nodes.
+                        subgraph_in_nodes.add_edge(node_name,
+                                                   node,
+                                                   edge=edge_data["edge"])
                     # Modify the attributes of the new node.
                     subgraph_in_nodes.nodes[node_name][
                         "node"].node_color = "blue"
@@ -559,7 +576,6 @@ def extract_stage_graphs(graph: nx.MultiDiGraph, fi_model: dict,
     Returns:
         The extracted stage graph.
     """
-
     stage_graphs = []
     stage_combinations = []
     # Get all possible node_in node_out combinations.
@@ -615,7 +631,6 @@ def extract_graph(graph: nx.MultiDiGraph, fi_model: dict,
         stage_name = stage
         stage_graph = extract_stage_graphs(subgraph, fi_model, stage_name,
                                            cell_lib, num_cores)
-
         # Rename the nodes to break dependencies between target graphs.
         rename_string = ("_" + stage_name)
         stage_graph = helpers.rename_nodes(stage_graph, rename_string, False)
