@@ -99,7 +99,7 @@ def parse_nodes(module: dict) -> dict:
                 pin = NodePin(number=pin_count, wire=wire)
                 pins.append(pin)
                 if port_direction == "input":
-                    in_wires[wire].append(node_name)
+                    in_wires[wire].append((node_name, port_name))
                 else:
                     out_wires[wire] = node_name
                 pin_count += 1
@@ -130,7 +130,8 @@ def create_connections(in_wires: dict, out_wires: dict) -> list:
     and out_wires. If a node is in both dicts, we connect them.
 
     Args:
-        in_wires: Input wires of a node. in_wires[wire_name] = node_name
+        in_wires: Input wires of a node.
+                  in_wires[wire_name] = (node_name, port_name)
         out_wires: Output wires of a node. out_wires[wire_name] = node_name
 
     Returns:
@@ -140,9 +141,11 @@ def create_connections(in_wires: dict, out_wires: dict) -> list:
     connections = []
     for out_wire, node_name in out_wires.items():
         if (out_wire in in_wires):
-            for node in in_wires[out_wire]:
+            for node, port in in_wires[out_wire]:
                 connections.append(
-                    Connection(node_in=node, node_out=node_name,
+                    Connection(node_in=node,
+                               port_in=port,
+                               node_out=node_name,
                                wire=out_wire))
 
     return connections
@@ -173,7 +176,7 @@ def add_ports(ports: dict, nodes: dict, in_wires: dict,
                 out_ports.append(
                     NodePort(type="output", name=port_name, pins=pins))
             else:
-                in_wires[pin_wire].append(port_name)
+                in_wires[pin_wire].append((port_name, port_name))
                 in_ports.append(
                     NodePort(type="input", name=port_name, pins=pins))
         # Add the port to the dict.
