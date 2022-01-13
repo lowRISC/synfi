@@ -75,6 +75,19 @@ class FiInjector:
             ]
             for node in nodes:
                 current_type = faulty_graph.nodes[node]["node"].type
+                # Check if the cell type is in the cell library.
+                type_found, current_type = helpers.check_gate_type(
+                    current_type, self.cell_lib.gate_in_type)
+                if not type_found:
+                    logger.error(f"Err: Gate type {current_type} not found.")
+                    sys.exit()
+                # Check if the fault cell type is in the cell library.
+                type_found, fault_type = helpers.check_gate_type(
+                    fault_type, self.cell_lib.gate_in_type)
+                if not type_found:
+                    logger.error(f"Err: Gate type {current_type} not found.")
+                    sys.exit()
+                # Replace the type of the gate.
                 faulty_graph.nodes[node]["node"].type = fault_type
                 faulty_graph.nodes[node]["node"].node_color = "red"
                 # Update the inport port.

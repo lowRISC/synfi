@@ -125,6 +125,26 @@ class Port:
     length: int
 
 
+def check_gate_type(gate_type: str, library: dict) -> (bool, str):
+    """ Check if the provided gate_type is in the cell library. If not,
+    search for a partial match.
+
+    Args:
+        gate_type: The type of the current gate.
+        library: The provided library.
+
+    Returns:
+        (True, type) if the gate type is in the library.
+    """
+    if gate_type not in library:
+        for lib_gate_type in library.keys():
+            if lib_gate_type in gate_type:
+                return (True, lib_gate_type)
+        return (False, gate_type)
+    else:
+        return (True, gate_type)
+
+
 def rename_nodes(graph: nx.DiGraph, suffix: str,
                  ignore_inputs: bool) -> nx.DiGraph:
     """ Rename all nodes of the graph by appending a suffix.
