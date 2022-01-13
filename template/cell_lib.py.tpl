@@ -22,20 +22,16 @@ logger = logging.getLogger(__name__)
 one = 1
 zero = 2
 
-# Set the clock and reset name and values.
-clk_name = ${cell_lib.clk}
-clk_value = one
-
-rst_name = ${cell_lib.rst}
-rst_value = zero
-
 registers = ${cell_lib.reg}
 
 gate_in_type = {
 % for cell_name, out_type in cell_lib.type_mapping.gate_in_type.items():
   '${cell_name}': '${out_type}',
 % endfor
-  'register': 'OTFI_D1',
+  'prim_flop': 'OTFI_D1',
+  'prim_flop_fault': 'OTFI_D1',
+  'prim_buf': 'OTFI_I1',
+  'prim_buf_fault': 'OTFI_I1',
   'out_node': 'OTFI_D1',
   'xnor': 'OTFI_I2',
   'xor': 'OTFI_I2',
@@ -50,7 +46,10 @@ gate_in_type_out = {
 % for cell_name, out_type in cell_lib.type_mapping.gate_in_type_out.items():
   '${cell_name}': '${out_type}',
 % endfor
-  'register': 'OTFI_D1',
+  'prim_flop': 'OTFI_D1',
+  'prim_flop_fault': 'OTFI_D1',
+  'prim_buf': 'OTFI_I1',
+  'prim_buf_fault': 'OTFI_I1',
   'out_node': 'OTFI_D1',
   'xnor': 'OTFI_I2',
   'xor': 'OTFI_I2',
@@ -118,6 +117,10 @@ gate_out_type = {
 % for cell_name, out_type in cell_lib.type_mapping.gate_out_type.items():
   '${cell_name}': '${out_type}',
 % endfor
+  'prim_flop': 'OTFI_D1',
+  'prim_flop_fault': 'OTFI_D1',
+  'prim_buf': 'OTFI_I1',
+  'prim_buf_fault': 'OTFI_I1',
   'input': 'OTFI_I1',
   'input_fault': 'OTFI_I1'
 }
@@ -926,6 +929,67 @@ def out_node(inputs: dict, graph: nx.DiGraph, solver):
     solver.add_clause([-p['input_0'], p['node_name']])
     solver.add_clause([p['input_0'], -p['node_name']])
 
+def prim_buf(inputs: dict, graph: nx.DiGraph, solver):
+    """ Prim buf node.
+
+    Args:
+        inputs: {'input_0', 'node_name'}.
+        graph: The networkx graph of the circuit.
+
+    Returns:
+        ZN = input_0.
+    """
+    p = validate_generic_inputs(inputs, 2, "prim_buf")
+    solver.add_clause([-p['input_0'].name, p['node_name'].name])
+    solver.add_clause([p['input_0'].name, -p['node_name'].name])
+
+def prim_buf_inv(inputs: dict, graph: nx.DiGraph, solver):
+    """ Prim buf node.
+
+    Args:
+        inputs: {'input_0', 'node_name'}.
+        graph: The networkx graph of the circuit.
+
+    Returns:
+        ZN = !input_0.
+    """
+    p = validate_generic_inputs(inputs, 2, "prim_buf")
+    solver.add_clause([-p['input_0'].name, -p['node_name'].name])
+    solver.add_clause([p['input_0'].name, p['node_name'].name])
+
+def prim_flop(inputs: dict, graph: nx.DiGraph, solver):
+    """ Register.
+
+    Args:
+        inputs: {'d_i/D', 'node_name'}.
+        graph: The networkx graph of the circuit.
+
+    Returns:
+        Q = d_i/D.
+    """
+    if "d_i" in inputs:
+        solver.add_clause([-inputs['d_i'].name, inputs['node_name'].name])
+        solver.add_clause([inputs['d_i'].name, -inputs['node_name'].name])
+    else:
+        solver.add_clause([-inputs['D'].name, inputs['node_name'].name])
+        solver.add_clause([inputs['D'].name, -inputs['node_name'].name])
+
+def prim_flop_inv(inputs: dict, graph: nx.DiGraph, solver):
+    """ Register.
+
+    Args:
+        inputs: {'d_i/D', 'node_name'}.
+        graph: The networkx graph of the circuit.
+
+    Returns:
+        Q = ! d_i/D.
+    """
+    if "d_i" in inputs:
+        solver.add_clause([-inputs['d_i'].name, -inputs['node_name'].name])
+        solver.add_clause([inputs['d_i'].name, inputs['node_name'].name])
+    else:
+        solver.add_clause([-inputs['D'].name, -inputs['node_name'].name])
+        solver.add_clause([inputs['D'].name, inputs['node_name'].name])
 
 def output(inputs: dict, graph: nx.DiGraph, solver):
     """ Out node.
@@ -949,11 +1013,20 @@ cell_mapping = {
   'xor_O': xor,
   'and_O': and_output,
   'or_O': or_output,
+  'prim_flop': prim_flop,
+  'prim_flop_fault': prim_flop_inv,
+  'prim_buf': prim_buf,
+  'prim_buf_fault': prim_buf_inv,
+  'input_fault_q_o': input_formula_QN,
+  'input_q_o': input_formula_Q,
   'input_Q': input_formula_Q,
   'input_QN': input_formula_QN,
   'in_node_Q': in_node_Q,
+  'in_node_q_o': in_node_Q,
   'in_node_QN': in_node_QN,
+  'out_node_q_o': out_node,
   'out_node_Q': out_node,
   'out_node_QN': out_node,
-  'output_O': output
+  'output_O': output,
+  'output_q_o': output
 }

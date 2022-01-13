@@ -113,10 +113,17 @@ class FormulaBuilder:
                             self.cell_lib.cell_mapping[node_type_out](
                                 inputs, self.graph, self.solver)
                         else:
-                            # Report missing gate type for gates with inputs.
-                            if self.graph.in_edges(node):
-                                logger.error(
-                                    f"Err: Gate type {node_type_out} not found."
-                                )
+                            # Check if the node_type is in the cell library.
+                            type_found, node_type = helpers.check_gate_type(
+                                node_type, self.cell_lib.cell_mapping)
+                            if type_found:
+                                self.cell_lib.cell_mapping[node_type](
+                                    inputs, self.graph, self.solver)
+                            else:
+                                # Report missing gate type for gates with inputs.
+                                if self.graph.in_edges(node):
+                                    logger.error(
+                                        f"Err: Gate type {node_type_out} not found."
+                                    )
 
         return self.solver
