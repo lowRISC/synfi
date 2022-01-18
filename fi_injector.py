@@ -941,7 +941,7 @@ def main(argv=None):
                                args.auto_fl, args.fault_limit, args.sim_faults,
                                args.store_target_graph, args.target_graph,
                                cell_lib))
-
+    ray.shutdown()
     tstp_end = time.time()
     logger.info("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
 
