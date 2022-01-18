@@ -9,7 +9,7 @@ import sys
 
 import networkx as nx
 import ray
-from pysat.solvers import Lingeling
+from pysat.solvers import Minisat22
 
 import helpers
 from formula_class import FormulaBuilder
@@ -549,7 +549,7 @@ class FiInjector:
             # Create the differential graph.
             diff_graph = self._create_diff_graph(faulty_graph)
 
-            solver = Lingeling()
+            solver = Minisat22()
             # Transform the differential graph to a boolean formula
             formula_builder = FormulaBuilder(diff_graph, self.cell_lib, solver)
             solver = formula_builder.transform_graph()
