@@ -543,28 +543,25 @@ class FiInjector:
         """
         results = []
         for fault_location in self.fault_locations:
-            solver = Lingeling()
             # Inject the faults into the target graph.
             faulty_graph = self._inject_faults(fault_location)
 
             # Create the differential graph.
             diff_graph = self._create_diff_graph(faulty_graph)
 
+            solver = Lingeling()
             # Transform the differential graph to a boolean formula
             formula_builder = FormulaBuilder(diff_graph, self.cell_lib, solver)
             solver = formula_builder.transform_graph()
-
             # Set one to logical one and  zero to logical zero.
             solver.add_clause([self.cell_lib.one])
             solver.add_clause([-self.cell_lib.zero])
             # Hand the boolean formula to the SAT solver.
             sat_result = solver.solve()
-            # Invoke the garbage collector.
-            del solver
-            del formula_builder
-            del faulty_graph
-            del diff_graph
-            gc.collect()
+
+            # Cleanup.
+            solver.delete()
+
             # Append result.
             results.append(
                 FIResult(fault_name=self.fault_name,
