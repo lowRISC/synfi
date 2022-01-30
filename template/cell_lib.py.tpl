@@ -133,21 +133,10 @@ out_type_pins = {
 
 
 # The mapping from one input pin type to another used by the injector.
-pin_in_mapping = ${cell_lib.pin_in_mapping}
+port_in_mapping = ${cell_lib.port_in_mapping}
 
 # The mapping from one input pin type to another used by the injector.
-pin_out_mapping = {
-    'ZN1': {
-        'Z1': {
-            'ZN': 'Z'
-        }
-    },
-    'Z1': {
-        'ZN1': {
-            'Z': 'ZN'
-        }
-    }
-}
+port_out_mapping = ${cell_lib.port_out_mapping}
 
 def rename_inputs(inputs: dict, type: str) -> dict:
     """ Rename the inputs for the current gate.

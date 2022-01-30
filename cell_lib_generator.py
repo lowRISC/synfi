@@ -71,7 +71,8 @@ class CellLib:
 
     """
     reg: str
-    pin_in_mapping: dict
+    port_in_mapping: dict
+    port_out_mapping: dict
     type_mapping: TypeMapping
     cell_formulas: list
     cell_mapping: list
@@ -425,7 +426,8 @@ def build_cell_lib(cells: list, cell_cfg: dict) -> CellLib:
     cell_mapping = build_cell_mapping(cells)
 
     cell_lib = CellLib(reg=cell_cfg["reg"],
-                       pin_in_mapping=cell_cfg["pin_in_mapping"],
+                       port_in_mapping=cell_cfg["port_in_mapping"],
+                       port_out_mapping=cell_cfg["port_out_mapping"],
                        type_mapping=type_mapping,
                        cell_formulas=cell_formulas,
                        cell_mapping=cell_mapping)
