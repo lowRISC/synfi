@@ -438,9 +438,40 @@ def set_in_out_nodes(graph: nx.MultiDiGraph, node_in: str, node_out: str,
         # Set type and color of the input node.
         graph.nodes[node_in_name]["node"].type = in_node_type
         graph.nodes[node_in_name]["node"].node_color = in_color
-        # Set type and color of the output node.
-        graph.nodes[node_out_name]["node"].type = out_node_type
-        graph.nodes[node_out_name]["node"].node_color = out_color
+       # Set type and color of the output node.
+        if out_node_type == "output" and graph.nodes[node_out_name]["node"].type != "output":
+            # Add a new node for the output and connect it with the current
+            # node.
+            node_new_out = node_out + "_output" + rename_string
+            # Change the port type to input.
+            in_ports_node = graph.nodes[node_out_name]["node"].out_ports
+            for out_port in in_ports_node:
+                out_port.type = "input"
+            # Add the node.
+            graph.add_node(
+                node_new_out, **{
+                    "node":
+                    Node(name=node_new_out,
+                        parent_name=node_out,
+                        type=out_node_type,
+                        in_ports=in_ports_node,
+                        out_ports=graph.nodes[node_out_name]["node"].out_ports,
+                        stage=stage,
+                        node_color=out_color)
+            })
+            # Create all edges between node_out_name and node_new_out
+            edges = []
+            for port in graph.nodes[node_out_name]["node"].out_ports:
+                for pin in port.pins:
+                    edges.append(Edge(in_port=port.name, in_pin=pin.number,
+                                      out_port=port.name, out_pin=pin.number,
+                                      wire=pin.wire))
+            # Connect node_out_name and node_new_out using the edge data.
+            for edge in edges:
+                graph.add_edge(node_out_name, node_new_out, edge=edge)
+        else:
+            graph.nodes[node_out_name]["node"].type = out_node_type
+            graph.nodes[node_out_name]["node"].node_color = out_color
 
     return graph
 
