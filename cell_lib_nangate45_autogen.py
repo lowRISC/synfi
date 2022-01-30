@@ -490,7 +490,7 @@ out_type_pins = {
 
 #                   Adaption needed for a new cell library                     #
 # The mapping from one input pin type to another used by the injector.
-pin_in_mapping = {
+port_in_mapping = {
     'A2B2': {
         'A1B1C2': {
             'A1': 'A',
@@ -584,7 +584,7 @@ pin_in_mapping = {
 }
 
 # The mapping from one input pin type to another used by the injector.
-pin_out_mapping = {'ZN1': {'Z1': {'ZN': 'Z'}}, 'Z1': {'ZN1': {'Z': 'ZN'}}}
+port_out_mapping = {'ZN1': {'Z1': {'ZN': 'Z'}}, 'Z1': {'ZN1': {'Z': 'ZN'}}}
 
 #                                DO NOT EDIT                                   #
 

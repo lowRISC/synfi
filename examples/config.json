@@ -1,7 +1,7 @@
 {
     "reg": "{'DFFS_X1', 'DFFR_X1'}",
     "exclude_cells": ["DFF", "DLL", "DLH", "TLAT"],
-    "pin_in_mapping": {
+    "port_in_mapping": {
         "A2B2": {
             "A1B1C2": {
                 "A1": "A",
@@ -90,6 +90,18 @@
             "A2": {
                 "A": "A1",
                 "B": "A2"
+            }
+        }
+    },
+    "port_out_mapping": {
+        "ZN1": {
+            "Z1": {
+                "ZN": "Z"
+            }
+        },
+        "Z1": {
+            "ZN1": {
+                "Z": "ZN"
             }
         }
     }
