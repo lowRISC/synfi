@@ -123,7 +123,7 @@ class FiInjector:
                     for edge_out, edge_in in faulty_graph.out_edges(node):
                         for edge_num, edge_data in faulty_graph.get_edge_data(
                                 edge_out, edge_in).items():
-                            edge_data["edge"].out_port = in_port_mapping[
+                            edge_data["edge"].out_port = out_port_mapping[
                                 edge_data["edge"].out_port]
 
         return faulty_graph
