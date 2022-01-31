@@ -929,8 +929,8 @@ def prim_buf(inputs: dict, graph: nx.DiGraph, solver):
         ZN = input_0.
     """
     p = validate_generic_inputs(inputs, 2, "prim_buf")
-    solver.add_clause([-p['input_0'].name, p['node_name'].name])
-    solver.add_clause([p['input_0'].name, -p['node_name'].name])
+    solver.add_clause([-p['input_0'], p['node_name']])
+    solver.add_clause([p['input_0'], -p['node_name']])
 
 def prim_buf_inv(inputs: dict, graph: nx.DiGraph, solver):
     """ Prim buf node.
@@ -943,8 +943,8 @@ def prim_buf_inv(inputs: dict, graph: nx.DiGraph, solver):
         ZN = !input_0.
     """
     p = validate_generic_inputs(inputs, 2, "prim_buf")
-    solver.add_clause([-p['input_0'].name, -p['node_name'].name])
-    solver.add_clause([p['input_0'].name, p['node_name'].name])
+    solver.add_clause([-p['input_0'], -p['node_name']])
+    solver.add_clause([p['input_0'], p['node_name']])
 
 def prim_flop(inputs: dict, graph: nx.DiGraph, solver):
     """ Register.
