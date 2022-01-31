@@ -117,7 +117,7 @@ def write_dot_graph(graph: nx.MultiDiGraph, file_name: Path) -> None:
         }}"""
 
     DOT = """
-        strict digraph  {{
+        digraph  {{
             {dot}
         }}
     """
