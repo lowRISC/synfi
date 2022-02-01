@@ -329,12 +329,14 @@ class FiInjector:
                             self._check_port_pin(
                                 node, diff_graph.nodes[node]["node"].out_ports,
                                 port_name, pin_number)
+                        node_id = node + "_" + port_name + "_" + str(
+                            pin_number)
                         if faulty:
                             if "_faulty" in node:
-                                node_name = node + "_xor"
+                                node_name = node_id + "_xor"
                                 node_type = "xor"
                                 if alert or exp_fault:
-                                    node_name = node + "_xnor_alert_exp"
+                                    node_name = node_id + "_xnor_alert_exp"
                                 if alert or exp_fault:
                                     node_type = "xnor"
                                 out_nodes_added.append(node_name)
@@ -344,9 +346,9 @@ class FiInjector:
                                     pin_number)
                         else:
                             if "_faulty" not in node:
-                                node_name = node + "_xnor"
+                                node_name = node_id + "_xnor"
                                 if alert:
-                                    node_name = node + "_xnor_alert"
+                                    node_name = node_id + "_xnor_alert"
                                 node_type = "xnor"
                                 out_nodes_added.append(node_name)
                                 self._add_xor_xnor_nodes(
