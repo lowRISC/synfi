@@ -11,6 +11,7 @@ import networkx as nx
 import ray
 from pysat.solvers import Minisat22
 
+import graph_builder
 import helpers
 from formula_class import FormulaBuilder
 from helpers import Edge, FIResult, Node, NodePin, NodePort
@@ -79,13 +80,13 @@ class FiInjector:
                 type_found, current_type = helpers.check_gate_type(
                     current_type, self.cell_lib.gate_in_type)
                 if not type_found:
-                    logger.error(f"Err: Gate type {current_type} not found.")
+                    logger.error(f"Err: Gate! type {current_type} not found.")
                     sys.exit()
                 # Check if the fault cell type is in the cell library.
                 type_found, fault_type = helpers.check_gate_type(
                     fault_type, self.cell_lib.gate_in_type)
                 if not type_found:
-                    logger.error(f"Err: Gate type {fault_type} not found.")
+                    logger.error(f"Err: Gate? type {fault_type} not found.")
                     sys.exit()
                 # Replace the type of the gate.
                 faulty_graph.nodes[node]["node"].type = fault_type
@@ -96,6 +97,16 @@ class FiInjector:
                 if gate_in_type_current != gate_in_type_faulty:
                     # We need to remap the input ports as the input type
                     # mismatches.
+                    if gate_in_type_current not in self.cell_lib.port_in_mapping:
+                        print(node)
+                        print(current_type)
+                        print(fault_type)
+                    if gate_in_type_faulty not in self.cell_lib.port_in_mapping[
+                            gate_in_type_current]:
+                        print("blub")
+                        print(node)
+                        print(current_type)
+                        print(fault_type)
                     in_port_mapping = self.cell_lib.port_in_mapping[
                         gate_in_type_current][gate_in_type_faulty]
                     # Update the port name in the node dict.
@@ -123,8 +134,9 @@ class FiInjector:
                     for edge_out, edge_in in faulty_graph.out_edges(node):
                         for edge_num, edge_data in faulty_graph.get_edge_data(
                                 edge_out, edge_in).items():
-                            edge_data["edge"].out_port = out_port_mapping[
-                                edge_data["edge"].out_port]
+                            if edge_data["edge"].out_port in out_port_mapping:
+                                edge_data["edge"].out_port = out_port_mapping[
+                                    edge_data["edge"].out_port]
 
         return faulty_graph
 
@@ -138,13 +150,16 @@ class FiInjector:
             port_name: The provided port name.
             pin_number: The provided pin number.
         """
-
+        # Input and output ports do not have in/out ports.
+        if not ports:
+            return
         for port in ports:
             if port.name == port_name:
                 for pin in port.pins:
                     if pin.number == int(pin_number):
                         return
-
+        print(ports)
+        print(port_name)
         logger.error(
             f"Provided port/pin {port_name}/{pin_number} for node {node} not found."
         )
@@ -326,12 +341,14 @@ class FiInjector:
                             self._check_port_pin(
                                 node, diff_graph.nodes[node]["node"].out_ports,
                                 port_name, pin_number)
+                        node_id = node + "_" + port_name + "_" + str(
+                            pin_number)
                         if faulty:
                             if "_faulty" in node:
-                                node_name = node + "_xor"
+                                node_name = node_id + "_xor"
                                 node_type = "xor"
                                 if alert or exp_fault:
-                                    node_name = node + "_xnor_alert_exp"
+                                    node_name = node_id + "_xnor_alert_exp"
                                 if alert or exp_fault:
                                     node_type = "xnor"
                                 out_nodes_added.append(node_name)
@@ -341,9 +358,9 @@ class FiInjector:
                                     pin_number)
                         else:
                             if "_faulty" not in node:
-                                node_name = node + "_xnor"
+                                node_name = node_id + "_xnor"
                                 if alert:
-                                    node_name = node + "_xnor_alert"
+                                    node_name = node_id + "_xnor_alert"
                                 node_type = "xnor"
                                 out_nodes_added.append(node_name)
                                 self._add_xor_xnor_nodes(
@@ -548,7 +565,12 @@ class FiInjector:
 
             # Create the differential graph.
             diff_graph = self._create_diff_graph(faulty_graph)
-
+            graph_builder.write_dot_graph(diff_graph, "diff_graph.dot")
+            #for node_out, node_in, edge in diff_graph.in_edges("rnd_ctr_q_i_stage_1", data=True):
+            #    print(node_out)
+            #    print(node_in)
+            #    print(edge)
+            #exit()
             solver = Minisat22()
             # Transform the differential graph to a boolean formula
             formula_builder = FormulaBuilder(diff_graph, self.cell_lib, solver)
