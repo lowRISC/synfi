@@ -139,7 +139,9 @@ class FiInjector:
             port_name: The provided port name.
             pin_number: The provided pin number.
         """
-
+        # Input and output ports do not have in/out ports.
+        if not ports:
+            return
         for port in ports:
             if port.name == port_name:
                 for pin in port.pins:
