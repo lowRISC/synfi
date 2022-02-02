@@ -683,6 +683,25 @@ def extract_graph(graph: nx.MultiDiGraph, fi_model: dict,
     extracted_graph = connect_graphs(graph, extracted_graph)
     return extracted_graph
 
+def extract_ge(target_graph: nx.MultiDiGraph, cell_lib: types.ModuleType) -> str:
+    """ Extract the size of the target circuit in (k)GE
+
+    Args:
+        target_graph: The extracted target graph.
+        cell_lib: The imported cell library.
+
+    Returns:
+        The size of the target circuit.
+    """
+    ge = 0
+    for node, attribute in target_graph.nodes(data=True):
+        if attribute["node"].type in cell_lib.ge:
+            ge += cell_lib.ge[attribute["node"].type]
+    if ge > 1000:
+        return str(round(ge/1000, 2)) + " kGE"
+    else:
+        return str(round(ge, 2)) + " GE"
+       
 
 def evaluate_fault_results(results: list, fi_model: dict,
                            graph: nx.MultiDiGraph,
@@ -702,6 +721,8 @@ def evaluate_fault_results(results: list, fi_model: dict,
         cell_lib: The imported cell library.
 
     """
+    target_circuit_size = extract_ge(target_graph, cell_lib)
+    circuit_size = extract_ge(graph, cell_lib)
     ineffective_faults = 0
     effective_faults_comb = 0
     effective_faults_seq = 0
@@ -728,6 +749,7 @@ def evaluate_fault_results(results: list, fi_model: dict,
     logger.info(
         f"Found {effective_faults_comb} ({effective_faults_comb_percent}%) effective combinational faults, {effective_faults_seq} ({effective_faults_seq_percent}%) effective sequential faults, and {ineffective_faults} ineffective faults."
     )
+    logger.info(f"Circuit size of the whole circuit: {circuit_size} and of the analyzed target graph: {target_circuit_size}.")
     logger.info(helpers.header)
 
 

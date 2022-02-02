@@ -24,6 +24,8 @@ zero = 2
 
 registers = ${cell_lib.reg}
 
+ge = ${cell_lib.ge}
+
 gate_in_type = {
 % for cell_name, out_type in cell_lib.type_mapping.gate_in_type.items():
   '${cell_name}': '${out_type}',
