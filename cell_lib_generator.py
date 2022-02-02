@@ -76,6 +76,7 @@ class CellLib:
     type_mapping: TypeMapping
     cell_formulas: list
     cell_mapping: list
+    ge: dict
 
 
 @dataclass
@@ -88,6 +89,8 @@ class Cell:
     name: str
     inputs: list
     outputs: list
+    area: float
+    ge: float
 
 
 @dataclass
@@ -220,8 +223,10 @@ def parse_cells(cell_lib: dict, cell_types: list, cell_cfg: dict) -> list:
         The cells list.
     """
     cells = []
+    area_nand2 = 0
     for cell_group in cell_lib.get_groups("cell"):
         name = cell_group.args[0]
+        area = cell_group["area"]
         if (not cell_types) or (name in cell_types):
             if not ([
                     True for exclude_cell in cell_cfg["exclude_cells"]
@@ -244,9 +249,16 @@ def parse_cells(cell_lib: dict, cell_types: list, cell_cfg: dict) -> list:
                 # Ignore cells without outputs or inputs, e.g., filler cells.
                 if inputs and outputs:
                     name = str(name).replace('"', '')
-                    cell = Cell(name=name, inputs=inputs, outputs=outputs)
+                    cell = Cell(name=name, inputs=inputs, outputs=outputs, area=area, ge=1)
                     cells.append(cell)
-
+                    if name == cell_cfg["ref_nand"]:
+                        area_nand2 = area
+    # Calculate kGE (area/area_NAND2).
+    if area_nand2:
+        for cell in cells:
+            cell.ge = round(cell.area / area_nand2, 4)
+    else:
+        logger.info(f"Could not find area for NAND2 ({cell_cfg['ref_nand']})")
     return cells
 
 def create_clauses(formula: str) -> str:
@@ -407,6 +419,20 @@ def build_cell_mapping(cells: Cell) -> list:
 
     return cell_mapping
 
+def extract_cell_ge(cells: list) -> dict:
+    """ Extract all kGE and store in dict.
+
+    Args:
+        cells: The cells list.
+
+    Returns:
+        Dict containing all kGE.
+
+    """
+    cell_ge = {}
+    for cell in cells:
+        cell_ge[cell.name] = cell.ge
+    return cell_ge
 
 def build_cell_lib(cells: list, cell_cfg: dict) -> CellLib:
     """ Converts the boolean function from a string to a clause.
@@ -424,13 +450,15 @@ def build_cell_lib(cells: list, cell_cfg: dict) -> CellLib:
     type_mapping = build_type_mappings(cells)
     cell_formulas = build_cell_functions(cells)
     cell_mapping = build_cell_mapping(cells)
+    cell_ge = extract_cell_ge(cells)
 
     cell_lib = CellLib(reg=cell_cfg["reg"],
                        port_in_mapping=cell_cfg["port_in_mapping"],
                        port_out_mapping=cell_cfg["port_out_mapping"],
                        type_mapping=type_mapping,
                        cell_formulas=cell_formulas,
-                       cell_mapping=cell_mapping)
+                       cell_mapping=cell_mapping,
+                       ge=cell_ge)
 
     return cell_lib
 
