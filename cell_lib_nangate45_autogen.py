@@ -124,6 +124,7 @@ gate_in_type = {
   'NOR2_X4': 'A2',
   'AOI22_X2': 'A2B2',
   'prim_flop': 'OTFI_D1',
+  'DFFR_X1': 'OTFI_D1',
   'prim_flop_fault': 'OTFI_D1',
   'prim_buf': 'OTFI_I1',
   'prim_buf_fault': 'OTFI_I1',
@@ -237,6 +238,7 @@ gate_in_type_out = {
   'NOR2_X4_ZN': 'A2',
   'AOI22_X2_ZN': 'A2B2',
   'prim_flop': 'OTFI_D1',
+  'DFFR_X1': 'OTFI_D1',
   'prim_flop_fault': 'OTFI_D1',
   'prim_buf': 'OTFI_I1',
   'prim_buf_fault': 'OTFI_I1',
@@ -413,6 +415,7 @@ gate_out_type = {
   'NOR2_X4': 'ZN1',
   'AOI22_X2': 'ZN1',
   'prim_flop': 'OTFI_D1',
+  'DFFR_X1': 'OTFI_D1',
   'prim_flop_fault': 'OTFI_D1',
   'prim_buf': 'OTFI_I1',
   'prim_buf_fault': 'OTFI_I1',
@@ -2991,9 +2994,13 @@ def output(inputs: dict, graph: nx.DiGraph, solver):
     Returns:
         ZN = input_0.
     """
-    p = validate_generic_inputs(inputs, 2, "output")
-    solver.add_clause([-p['input_0'], p['node_name']])
-    solver.add_clause([p['input_0'], -p['node_name']])
+    if "Q" in inputs:
+        solver.add_clause([-inputs['Q'].name, inputs['node_name'].name])
+        solver.add_clause([inputs['Q'].name, -inputs['node_name'].name])
+    else:
+        p = validate_generic_inputs(inputs, 2, "output")
+        solver.add_clause([-p['input_0'], p['node_name']])
+        solver.add_clause([p['input_0'], -p['node_name']])
 
 cell_mapping = {
   'OR2_X4_ZN': OR2_X4_ZN,
@@ -3099,12 +3106,17 @@ cell_mapping = {
   'and_O': and_output,
   'or_O': or_output,
   'prim_flop': prim_flop,
+  'DFFR_X1_Q': prim_flop,
+  'DFFR_X1_QN': prim_flop_inv,
   'prim_flop_fault': prim_flop_inv,
   'prim_buf': prim_buf,
   'prim_buf_fault': prim_buf_inv,
   'input_fault_q_o': input_formula_QN,
+  'input_rnd_ctr_q_i': input_formula_Q,
   'input_q_o': input_formula_Q,
   'input_Q': input_formula_Q,
+  'input_fault_Q': input_formula_QN,
+  'input_fault_rnd_ctr_q_i': input_formula_QN,
   'input_QN': input_formula_QN,
   'in_node_Q': in_node_Q,
   'in_node_q_o': in_node_Q,
@@ -3112,6 +3124,8 @@ cell_mapping = {
   'out_node_q_o': out_node,
   'out_node_Q': out_node,
   'out_node_QN': out_node,
+  'output_o': output,
   'output_O': output,
-  'output_q_o': output
+  'output_q_o': output,
+  'output_Q': output
 }
