@@ -259,12 +259,8 @@ def extract_graph_between_nodes(graph: nx.MultiDiGraph, stages: list,
         node_out = stage.node_out
         # Create a subgraph between in_node and out_node excluding other registers.
         registers = get_registers(graph, cell_lib)
-        nodes_exclude = [
-            reg["node"].name for reg in registers
-            if reg["node"].name != (node_in or node_out)
-        ]
-
-        # If specified in the fault model, also ignore other cells.
+        nodes_exclude = []
+        # If specified in the fault model, ignore cells.
         for exclude_cell in fi_model.get("exclude_cells_graph", []):
             for node in graph.nodes():
                 if exclude_cell in node:
@@ -274,7 +270,6 @@ def extract_graph_between_nodes(graph: nx.MultiDiGraph, stages: list,
             graph,
             filter_node=lambda n: n in [node_in, node_out
                                         ] or n not in nodes_exclude)
-
         # Find all pathes between in_node and out_node and create the new graph.
         if node_in == node_out:
             paths_between_generator = nx.simple_cycles(sub_graph)
@@ -626,7 +621,6 @@ def extract_stage_graphs(graph: nx.MultiDiGraph, fi_model: dict,
     # Split the list into num_cores shares.
     stage_comb_shares = numpy.array_split(numpy.array(stage_combinations),
                                           num_cores)
-
     # Use ray to distribute the extraction to num_cores processes.
     tasks = [
         extract_graph_between_nodes.remote(graph, stage_comb_share, stage_name,
@@ -640,7 +634,10 @@ def extract_stage_graphs(graph: nx.MultiDiGraph, fi_model: dict,
     # Return the stage graph containing all subgraphs.
     return nx.compose_all(stage_graphs)
 
-def add_in_nodes_unroll(graph: nx.MultiDiGraph, unrolled_graph: nx.MultiDiGraph, node_out: str, node: str, edge_data: dict) -> nx.MultiDiGraph:
+
+def add_in_nodes_unroll(graph: nx.MultiDiGraph,
+                        unrolled_graph: nx.MultiDiGraph, node_out: str,
+                        node: str, edge_data: dict) -> nx.MultiDiGraph:
     """ Add input nodes to the unrolled node.
 
     Args:
@@ -657,20 +654,22 @@ def add_in_nodes_unroll(graph: nx.MultiDiGraph, unrolled_graph: nx.MultiDiGraph,
         node_out_name = node_out + "_unroll_in"
         if not unrolled_graph.has_node(node_out_name):
             unrolled_graph.add_node(
-                node_out_name, **{"node":
+                node_out_name, **{
+                    "node":
                     Node(name=node_out_name,
-                        parent_name=graph.nodes[node_out]["node"].parent_name,
-                        type="input",
-                        in_ports=graph.nodes[node_out]["node"].in_ports,
-                        out_ports=graph.nodes[node_out]["node"].out_ports,
-                        stage=graph.nodes[node_out]["node"].stage,
-                        node_color="blue")
-            })
+                         parent_name=graph.nodes[node_out]["node"].parent_name,
+                         type="input",
+                         in_ports=graph.nodes[node_out]["node"].in_ports,
+                         out_ports=graph.nodes[node_out]["node"].out_ports,
+                         stage=graph.nodes[node_out]["node"].stage,
+                         node_color="blue")
+                })
         unrolled_graph.add_edge(node_out_name, node, edge=(edge_data["edge"]))
     return unrolled_graph
 
-def unroll_circuit(graph: nx.MultiDiGraph,
-                   cell_lib: types.ModuleType) -> nx.MultiDiGraph:
+
+def unroll_circuit(graph: nx.MultiDiGraph, cell_lib: types.ModuleType,
+                   in_out_nodes: list) -> nx.MultiDiGraph:
     """ Unroll cycles in the graph.
 
     Cycles are part of the directed multigraph and are caused by registers.
@@ -681,6 +680,7 @@ def unroll_circuit(graph: nx.MultiDiGraph,
     Args:
         graph: The networkxmultidigraph of the circuit.
         cell_lib: The imported cell library.
+        in_out_nodes: The input and output nodes to analyze.
 
     Returns:
         The unrolled directed acyclic multigraph.
@@ -690,29 +690,16 @@ def unroll_circuit(graph: nx.MultiDiGraph,
     # and this register is connected to a left and right connector, i.e.,
     # connector_l -> node -> connector_r.
     # Store the connectors which form a cycle.
-    cycle_node_connectors = DefaultDict(lambda: DefaultDict(list))
-    for cycle in nx.simple_cycles(graph):
-        for idx, node in enumerate(cycle):
-            for register in cell_lib.registers:
-                if register in node:
-                    # Get left and right connector nodes.
-                    next_idx_r = idx + 1
-                    if next_idx_r >= len(cycle):
-                        next_idx_r = 0
-                    next_idx_l = idx - 1
-                    if next_idx_l <= 0:
-                        next_idx_l = len(cycle) - 1
-                    # Store register and left and right connector into cycle_nodes.
-                    if cycle[next_idx_l] not in cycle_node_connectors[node][
-                            "l"]:
-                        cycle_node_connectors[node]["l"].append(
-                            cycle[next_idx_l], )
-                    if cycle[next_idx_r] not in cycle_node_connectors[node][
-                            "r"]:
-                        cycle_node_connectors[node]["r"].append(
-                            cycle[next_idx_r], )
-                    break
-                # Add the new node and reconnect connector_l and connector_r.
+    cycle_node_connectors = DefaultDict(list)
+    for node, attribute in graph.nodes(data=True):
+        if attribute[
+                "node"].type in cell_lib.registers and node not in in_out_nodes:
+            for reg_node_1, reg_node_r in graph.out_edges(node):
+                for reg_node_l, reg_node_2 in graph.in_edges(node):
+                    if nx.has_path(graph, source=reg_node_r,
+                                   target=reg_node_l):
+                        if reg_node_r not in cycle_node_connectors[node]:
+                            cycle_node_connectors[node].append(reg_node_r)
 
     for node, connectors in cycle_node_connectors.items():
         # Add the new node to unroll the loop.
@@ -731,7 +718,7 @@ def unroll_circuit(graph: nx.MultiDiGraph,
             })
         # Find edges between node -> connector_r, remove them, and
         # reconnect with the new node_new_name.
-        for connector_r in connectors["r"]:
+        for connector_r in connectors:
             for node_out, node_in, edge_data in graph.in_edges(connector_r,
                                                                data=True):
                 if node_out == node:
@@ -740,20 +727,12 @@ def unroll_circuit(graph: nx.MultiDiGraph,
                                             edge=(edge_data["edge"]))
                     unrolled_graph.remove_edge(node_out, node_in)
 
-        # Edges between connector_l -> node in the cycle are preserved. However,
-        # if in_edge is not in connector_l (i.e., is not part of the cycle)
-        # remove from node and reconnect to node_new_name.
+        # Add missing input nodes for node_new_name.
         for node_out, node_in, edge_data in graph.in_edges(node, data=True):
-            if node_out not in connectors["l"]:
-                unrolled_graph.add_edge(node_out,
-                                        node_new_name,
-                                        edge=(edge_data["edge"]))
-                unrolled_graph.remove_edge(node_out, node_in)
-        # Add missing input nodes for node_new_name and node.
-        for node_out, node_in, edge_data in graph.in_edges(node, data=True):
-            unrolled_graph = add_in_nodes_unroll(graph, unrolled_graph, node_out, node, edge_data)
-            unrolled_graph = add_in_nodes_unroll(graph, unrolled_graph, node_out, node_new_name, edge_data)
-            
+            unrolled_graph = add_in_nodes_unroll(graph, unrolled_graph,
+                                                 node_out, node_new_name,
+                                                 edge_data)
+
     return unrolled_graph
 
 
@@ -774,12 +753,22 @@ def extract_graph(graph: nx.MultiDiGraph, fi_model: dict,
     Returns:
         The extracted subgraph of the original graph.
     """
-    extracted_graphs = []
-
+    sub_graph = copy.deepcopy(graph)
+    # Extract the defined input and output nodes.
+    in_out_nodes = []
+    for stage in fi_model["stages"]:
+        for cnt in range(len(fi_model["stages"][stage]["inputs"])):
+            node_in = fi_model["stages"][stage]["inputs"][cnt]
+            node_out = fi_model["stages"][stage]["outputs"][cnt]
+            if node_in != node_out:
+                in_out_nodes.append(node_in)
+    # Unroll the circuit.
+    unrolled_graph = unroll_circuit(sub_graph, cell_lib, in_out_nodes)
     # Extract all graphs between the given nodes.
+    extracted_graphs = []
     for stage in fi_model["stages"]:
         # Extract the target graph.
-        subgraph = copy.deepcopy(graph)
+        subgraph = copy.deepcopy(unrolled_graph)
         stage_name = stage
         stage_graph = extract_stage_graphs(subgraph, fi_model, stage_name,
                                            cell_lib, num_cores)
@@ -802,12 +791,11 @@ def extract_graph(graph: nx.MultiDiGraph, fi_model: dict,
     extracted_graph = nx.compose_all(extracted_graphs)
     # Connect the subgraphs in the target graph.
     extracted_graph = connect_graphs(graph, extracted_graph)
-    # Unroll the circuit.
-    target_graph = unroll_circuit(extracted_graph, cell_lib)
+    return extracted_graph
 
-    return target_graph
 
-def extract_ge(target_graph: nx.MultiDiGraph, cell_lib: types.ModuleType) -> str:
+def extract_ge(target_graph: nx.MultiDiGraph,
+               cell_lib: types.ModuleType) -> str:
     """ Extract the size of the target circuit in (k)GE
 
     Args:
@@ -822,10 +810,10 @@ def extract_ge(target_graph: nx.MultiDiGraph, cell_lib: types.ModuleType) -> str
         if attribute["node"].type in cell_lib.ge:
             ge += cell_lib.ge[attribute["node"].type]
     if ge > 1000:
-        return str(round(ge/1000, 2)) + " kGE"
+        return str(round(ge / 1000, 2)) + " kGE"
     else:
         return str(round(ge, 2)) + " GE"
-       
+
 
 def evaluate_fault_results(results: list, fi_model: dict,
                            graph: nx.MultiDiGraph,
@@ -873,7 +861,9 @@ def evaluate_fault_results(results: list, fi_model: dict,
     logger.info(
         f"Found {effective_faults_comb} ({effective_faults_comb_percent}%) effective combinational faults, {effective_faults_seq} ({effective_faults_seq_percent}%) effective sequential faults, and {ineffective_faults} ineffective faults."
     )
-    logger.info(f"Circuit size of the whole circuit: {circuit_size} and of the analyzed target graph: {target_circuit_size}.")
+    logger.info(
+        f"Circuit size of the whole circuit: {circuit_size} and of the analyzed target graph: {target_circuit_size}."
+    )
     logger.info(helpers.header)
 
 
