@@ -1,0 +1,169 @@
+{
+    "fimodels": {
+        "aes_cipher_control_fsm_rnd_cntr": {
+            "simultaneous_faults": 1,
+            "exclude_auto_fl": [
+
+            ],
+            "exclude_cells_graph": [
+                
+            ],
+            "stages": {
+                "stage_1": {
+                    "inputs": [
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13825",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13826",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13827",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13828",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13825",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13826",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13827",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13828"
+                    ],
+                    "outputs": [
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13825",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13826",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13827",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13828",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13825",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13826",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13827",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13828"
+                    ],
+                    "type": "input"
+                },
+                "stage_2": {
+                    "inputs": [
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13825",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13826",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13827",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13828"
+                    ],
+                    "outputs": [
+                        "key_expand_round_o",
+                        "key_expand_round_o",
+                        "key_expand_round_o",
+                        "key_expand_round_o"
+                    ],
+                    "type": "output"
+                },
+                "stage_3": {
+                    "inputs": [
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13825",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13826",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13827",
+                        "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13828",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13825",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13826",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13827",
+                        "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13828"
+                    ],
+                    "outputs": [
+                        "$flatten\\u_rnd_ctr_err_reg.$auto$simplemap.cc:527:simplemap_adff_sdff$13832",
+                        "$flatten\\u_rnd_ctr_err_reg.$auto$simplemap.cc:527:simplemap_adff_sdff$13832",
+                        "$flatten\\u_rnd_ctr_err_reg.$auto$simplemap.cc:527:simplemap_adff_sdff$13832",
+                        "$flatten\\u_rnd_ctr_err_reg.$auto$simplemap.cc:527:simplemap_adff_sdff$13832",
+                        "$flatten\\u_rnd_ctr_err_reg.$auto$simplemap.cc:527:simplemap_adff_sdff$13832",
+                        "$flatten\\u_rnd_ctr_err_reg.$auto$simplemap.cc:527:simplemap_adff_sdff$13832",
+                        "$flatten\\u_rnd_ctr_err_reg.$auto$simplemap.cc:527:simplemap_adff_sdff$13832",
+                        "$flatten\\u_rnd_ctr_err_reg.$auto$simplemap.cc:527:simplemap_adff_sdff$13832"
+                    ],
+                    "type": "output"
+                }
+            },
+            "node_fault_mapping": {
+                "NAND2_X1": [ "NOR2_X1", "OR2_X1", "XOR2_X1"],
+                "NAND3_X1": ["NOR3_X1", "AND3_X1", "OR3_X1"],
+                "AND3_X1": ["NOR3_X1", "NAND3_X1", "OR3_X1"],
+                "OR3_X1": ["NOR3_X1", "NAND3_X1", "AND3_X1"],
+                "NOR3_X1": ["OR3_X1", "NAND3_X1", "AND3_X1"],
+                "NOR2_X1":  [ "NAND2_X1", "OR2_X1", "XOR2_X1"],
+                "AND2_X1": [ "NAND2_X1", "NOR2_X1", "XOR2_X1"],
+                "XOR2_X1": [ "NAND2_X1", "NOR2_X1", "OR2_X1"],
+                "XNOR2_X1": ["XOR2_X1", "NAND2_X1", "NOR2_X1"],
+                "INV_X1": ["INV_X1"],
+                "AOI21_X1": ["OAI21_X1"],
+                "OAI21_X1": ["AOI21_X1"],
+                "OAI22_X1": ["AOI22_X1"],
+                "AOI22_X1": ["OAI22_X1"],
+                "OAI211_X1": ["AOI211_X1"],
+                "AOI211_X1": ["OAI211_X1"],
+                "NOR4_X1": ["OR4_X1", "NAND4_X1"],
+                "OR2_X1": ["AND2_X1"],
+                "OR4_X1": ["NOR4_X1", "NAND4_X1"],
+                "NAND4_X1": ["AND4_X1"],
+                "OAI33_X1": ["OAI33_X1"],
+                "OAI221_X1": ["AOI221_X1"],
+                "AOI221_X1": ["OAI221_X1"],
+                "MUX2_X1": ["MUX2_X1"],
+                "AOI222_X1": ["OAI222_X1"],
+                "OAI222_X1": ["AOI222_X1"],
+                "DFFR_X1": ["prim_flop_fault"],
+                "input": ["input_fault"]
+            },
+            "fault_locations": {
+                "U900": ["stage_1"]
+            },
+            "output_values": {
+                "key_expand_round_o": {
+                    "O": {
+                        "0": 1,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0
+                    }
+                }
+            },
+            "input_values": {
+                "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13825": {
+                    "D": {
+                        "0": 0
+                    }
+                },
+                "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13826": {
+                    "D": {
+                        "0": 0
+                    }
+                },
+                "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13827": {
+                    "D": {
+                        "0": 0
+                    }
+                },
+                "$flatten\\u_rnd_ctr_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13828": {
+                    "D": {
+                        "0": 0
+                    }
+                },
+                "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13825": {
+                    "D": {
+                        "0": 0
+                    }
+                },
+                "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13826": {
+                    "D": {
+                        "0": 1
+                    }
+                },
+                "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13827": {
+                    "D": {
+                        "0": 0
+                    }
+                },
+                "$flatten\\u_rnd_ctr_rem_regs.$auto$simplemap.cc:527:simplemap_adff_sdff$13828": {
+                    "D": {
+                        "0": 1
+                    }
+                }
+            },
+            "alert_values": {
+                "$flatten\\u_rnd_ctr_err_reg.$auto$simplemap.cc:527:simplemap_adff_sdff$13832": {
+                    "Q": {
+                        "0": 0
+                    }
+                }
+            },
+            "output_fault_values": {}
+        }
+    }
+}

@@ -1,0 +1,42 @@
+diff --git a/hw/ip/aes/rtl/aes_cipher_control.sv b/hw/ip/aes/rtl/aes_cipher_control.sv
+index 425d93529..97e4aeaec 100644
+--- a/hw/ip/aes/rtl/aes_cipher_control.sv
++++ b/hw/ip/aes/rtl/aes_cipher_control.sv
+@@ -76,7 +76,8 @@ module aes_cipher_control import aes_pkg::*;
+   logic                          [3:0] rnd_ctr_sum;
+   logic                          [3:0] num_rounds_d, num_rounds_q;
+   logic                                rnd_ctr_parity, rnd_ctr_parity_d, rnd_ctr_parity_q;
+-  logic                                rnd_ctr_err, rnd_ctr_err_sum, rnd_ctr_err_parity;
++  logic                                rnd_ctr_err_sum, rnd_ctr_err_parity;
++  logic                                rnd_ctr_err_q, rnd_ctr_err_d, rnd_ctr_err;
+   sp2v_e                               crypt_d, crypt_q;
+   sp2v_e                               dec_key_gen_d, dec_key_gen_q;
+   logic                                prng_reseed_d, prng_reseed_q;
+@@ -438,6 +439,16 @@ module aes_cipher_control import aes_pkg::*;
+     .q_o ( rnd_ctr_parity_q )
+   );
+ 
++  prim_flop #(
++    .Width(1),
++    .ResetValue('0)
++  ) u_rnd_ctr_err_reg (
++    .clk_i,
++    .rst_ni,
++    .d_i ( rnd_ctr_err_d ),
++    .q_o ( rnd_ctr_err_q )
++  );
++
+   // Generate parity bits and sum.
+   assign rnd_ctr_parity_d = ^rnd_ctr_d;
+   assign rnd_ctr_parity   = ^rnd_ctr_q;
+@@ -447,7 +458,9 @@ module aes_cipher_control import aes_pkg::*;
+   assign rnd_ctr_err_sum    = (rnd_ctr_sum != num_rounds_q)        ? 1'b1 : 1'b0;
+   assign rnd_ctr_err_parity = (rnd_ctr_parity != rnd_ctr_parity_q) ? 1'b1 : 1'b0;
+ 
+-  assign rnd_ctr_err = rnd_ctr_err_sum | rnd_ctr_err_parity;
++  assign rnd_ctr_err_d = rnd_ctr_err_sum | rnd_ctr_err_parity;
++
++  assign rnd_ctr_err = rnd_ctr_err_q;
+ 
+   //////////////////////////////
+   // Sparsely Encoded Signals //
