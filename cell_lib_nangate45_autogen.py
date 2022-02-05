@@ -2904,8 +2904,8 @@ def in_node_QN(inputs: dict, graph: nx.DiGraph, solver):
         Q = !input_0
     """
     p = validate_generic_inputs(inputs, 2, "in_node_QN")
-    solver.add_clause([-p['I1'], -p['node_name']])
-    solver.add_clause([p['I1'], p['node_name']])
+    solver.add_clause([-p['input_0'], -p['node_name']])
+    solver.add_clause([p['input_0'], p['node_name']])
 
 
 def out_node(inputs: dict, graph: nx.DiGraph, solver):
@@ -3106,6 +3106,7 @@ cell_mapping = {
   'and_O': and_output,
   'or_O': or_output,
   'prim_flop': prim_flop,
+  'DFFS_X1_Q': prim_flop,
   'DFFR_X1_Q': prim_flop,
   'DFFR_X1_QN': prim_flop_inv,
   'prim_flop_fault': prim_flop_inv,
