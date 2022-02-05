@@ -902,8 +902,8 @@ def in_node_QN(inputs: dict, graph: nx.DiGraph, solver):
         Q = !input_0
     """
     p = validate_generic_inputs(inputs, 2, "in_node_QN")
-    solver.add_clause([-p['I1'], -p['node_name']])
-    solver.add_clause([p['I1'], p['node_name']])
+    solver.add_clause([-p['input_0'], -p['node_name']])
+    solver.add_clause([p['input_0'], p['node_name']])
 
 
 def out_node(inputs: dict, graph: nx.DiGraph, solver):

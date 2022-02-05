@@ -635,39 +635,6 @@ def extract_stage_graphs(graph: nx.MultiDiGraph, fi_model: dict,
     return nx.compose_all(stage_graphs)
 
 
-def add_in_nodes_unroll(graph: nx.MultiDiGraph,
-                        unrolled_graph: nx.MultiDiGraph, node_out: str,
-                        node: str, edge_data: dict) -> nx.MultiDiGraph:
-    """ Add input nodes to the unrolled node.
-
-    Args:
-        graph: The original graph.
-        unrolled_graph: The unrolled graph.
-        node_out: The out node of the edge.
-        node: The input node.
-        edge_data: The edge data of the edge in the graph.
-
-    Returns:
-        The unrolled graph with the added input node.
-    """
-    if not unrolled_graph.has_edge(node_out, node):
-        node_out_name = node_out + "_unroll_in"
-        if not unrolled_graph.has_node(node_out_name):
-            unrolled_graph.add_node(
-                node_out_name, **{
-                    "node":
-                    Node(name=node_out_name,
-                         parent_name=graph.nodes[node_out]["node"].parent_name,
-                         type="input",
-                         in_ports=graph.nodes[node_out]["node"].in_ports,
-                         out_ports=graph.nodes[node_out]["node"].out_ports,
-                         stage=graph.nodes[node_out]["node"].stage,
-                         node_color="blue")
-                })
-        unrolled_graph.add_edge(node_out_name, node, edge=(edge_data["edge"]))
-    return unrolled_graph
-
-
 def unroll_circuit(graph: nx.MultiDiGraph, cell_lib: types.ModuleType,
                    in_out_nodes: list) -> nx.MultiDiGraph:
     """ Unroll cycles in the graph.
@@ -702,36 +669,30 @@ def unroll_circuit(graph: nx.MultiDiGraph, cell_lib: types.ModuleType,
                             cycle_node_connectors[node].append(reg_node_r)
 
     for node, connectors in cycle_node_connectors.items():
-        # Add the new node to unroll the loop.
-        node_new_name = node + "_unroll_in"
-        stage = graph.nodes[node]["node"].stage
-        unrolled_graph.add_node(
-            node_new_name, **{
-                "node":
-                Node(name=node_new_name,
-                     parent_name=graph.nodes[node]["node"].parent_name,
-                     type=graph.nodes[node]["node"].type,
-                     in_ports=graph.nodes[node]["node"].in_ports,
-                     out_ports=graph.nodes[node]["node"].out_ports,
-                     stage=stage,
-                     node_color=graph.nodes[node]["node"].node_color)
-            })
         # Find edges between node -> connector_r, remove them, and
-        # reconnect with the new node_new_name.
+        # reconnect with the new node_in_name.
         for connector_r in connectors:
             for node_out, node_in, edge_data in graph.in_edges(connector_r,
                                                                data=True):
                 if node_out == node:
-                    unrolled_graph.add_edge(node_new_name,
+                    node_in_name = node_out + "_" + node_in
+                    if not unrolled_graph.has_node(node_in_name):
+                        unrolled_graph.add_node(
+                            node_in_name, **{
+                                "node":
+                                Node(name=node_in_name,
+                                     parent_name=graph.nodes[node_out]
+                                     ["node"].parent_name,
+                                     type="input",
+                                     in_ports=[],
+                                     out_ports=[],
+                                     stage=graph.nodes[node_out]["node"].stage,
+                                     node_color="blue")
+                            })
+                    unrolled_graph.add_edge(node_in_name,
                                             node_in,
                                             edge=(edge_data["edge"]))
                     unrolled_graph.remove_edge(node_out, node_in)
-
-        # Add missing input nodes for node_new_name.
-        for node_out, node_in, edge_data in graph.in_edges(node, data=True):
-            unrolled_graph = add_in_nodes_unroll(graph, unrolled_graph,
-                                                 node_out, node_new_name,
-                                                 edge_data)
 
     return unrolled_graph
 
@@ -782,7 +743,7 @@ def extract_graph(graph: nx.MultiDiGraph, fi_model: dict,
             stage_graph = set_in_out_nodes(stage_graph, node_in, node_out,
                                            rename_string, fi_model, stage)
         # Add missing input nodes for the gates.
-        stage_graph = add_in_nodes(graph, stage_graph,
+        stage_graph = add_in_nodes(unrolled_graph, stage_graph,
                                    fi_model["stages"][stage_name]["inputs"],
                                    rename_string, stage)
         # Append the target graph to the list of graphs.
