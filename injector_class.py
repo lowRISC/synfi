@@ -215,15 +215,11 @@ class FiInjector:
                     for pin_number, pin_value in port.items():
                         value_str = ""
                         node_type = diff_graph.nodes[node]["node"].type
-                        # For fault inputs, invert the value.
-                        if pin_value == 1 and node_type == "input":
+                        # Set the input value.
+                        if pin_value == 1:
                             value_str = "one"
-                        elif pin_value == 1 and node_type == "input_fault":
-                            value_str = "null"
-                        elif pin_value == 0 and node_type == "input":
-                            value_str = "null"
                         else:
-                            value_str = "one"
+                            value_str = "null"
                         # Check if the provided port/pin exists for the node.
                         self._check_port_pin(
                             node, diff_graph.nodes[node]["node"].in_ports,
