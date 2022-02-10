@@ -755,12 +755,13 @@ def extract_graph(graph: nx.MultiDiGraph, fi_model: dict,
     return extracted_graph
 
 
-def extract_ge(target_graph: nx.MultiDiGraph,
+def extract_ge(target_graph: nx.MultiDiGraph, orig_graph: nx.MultiDiGraph,
                cell_lib: types.ModuleType) -> str:
     """ Extract the size of the target circuit in (k)GE
 
     Args:
         target_graph: The extracted target graph.
+        orig_graph: The original graph.
         cell_lib: The imported cell library.
 
     Returns:
@@ -768,8 +769,10 @@ def extract_ge(target_graph: nx.MultiDiGraph,
     """
     ge = 0
     for node, attribute in target_graph.nodes(data=True):
-        if attribute["node"].type in cell_lib.ge:
-            ge += cell_lib.ge[attribute["node"].type]
+        orig_name = attribute["node"].parent_name
+        if orig_name in orig_graph.nodes:
+            if orig_graph.nodes[orig_name]["node"].type in cell_lib.ge:
+                ge += cell_lib.ge[orig_graph.nodes[orig_name]["node"].type]
     if ge > 1000:
         return str(round(ge / 1000, 2)) + " kGE"
     else:
@@ -794,8 +797,8 @@ def evaluate_fault_results(results: list, fi_model: dict,
         cell_lib: The imported cell library.
 
     """
-    target_circuit_size = extract_ge(target_graph, cell_lib)
-    circuit_size = extract_ge(graph, cell_lib)
+    target_circuit_size = extract_ge(target_graph, graph, cell_lib)
+    circuit_size = extract_ge(graph, graph, cell_lib)
     ineffective_faults = 0
     effective_faults_comb = 0
     effective_faults_seq = 0
