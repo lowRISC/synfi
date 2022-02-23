@@ -852,7 +852,7 @@ def gen_fault_locations(fi_model: dict, graph: nx.MultiDiGraph,
     """
     fault_locations = DefaultDict(list)
 
-    filter_types = {"output", "in_node", "out_node", "null_node", "one_node"}
+    filter_types = {"in_node", "out_node", "null_node", "one_node"}
     filter_types = set.union(filter_types, cell_lib.registers)
 
     exclude_cells = []
@@ -902,7 +902,7 @@ def handle_fault_locations(auto_fl: bool, fi_model: dict,
     # Find the corresponding fault locations in the target graph and append
     # to fault_locations list.
     fault_locations = []
-    filter_types = {"in_node", "out_node", "output"}
+    filter_types = {"in_node", "out_node"}
     for fault_node, fault_stages in fi_model["fault_locations"].items():
         for fault_stage in fault_stages:
             nodes = [
@@ -970,7 +970,7 @@ def handle_fault_model(graph: nx.MultiDiGraph, fi_model_name: str,
     # Print fault model.
     logger.info(helpers.header)
     logger.info(
-        f"{datetime.now()}: Starting! FI Injector for fault model {fi_model_name} with {fi_model['simultaneous_faults']} simultaneous faults."
+        f"{datetime.now()}: Starting FI Injector for fault model {fi_model_name} with {fi_model['simultaneous_faults']} simultaneous faults."
     )
 
     # Open or create the target graph.
