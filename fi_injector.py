@@ -259,7 +259,11 @@ def extract_graph_between_nodes(graph: nx.MultiDiGraph, stages: list,
         node_out = stage.node_out
         # Create a subgraph between in_node and out_node excluding other registers.
         registers = get_registers(graph, cell_lib)
-        nodes_exclude = []
+        registers = get_registers(graph, cell_lib)
+        nodes_exclude = [
+            reg["node"].name for reg in registers
+            if reg["node"].name != (node_in or node_out)
+        ]
         # If specified in the fault model, ignore cells.
         for exclude_cell in fi_model.get("exclude_cells_graph", []):
             for node in graph.nodes():
@@ -721,7 +725,7 @@ def extract_graph(graph: nx.MultiDiGraph, fi_model: dict,
         for cnt in range(len(fi_model["stages"][stage]["inputs"])):
             node_in = fi_model["stages"][stage]["inputs"][cnt]
             node_out = fi_model["stages"][stage]["outputs"][cnt]
-            if node_in != node_out:
+            if node_in == node_out:
                 in_out_nodes.append(node_in)
     # Unroll the circuit.
     unrolled_graph = unroll_circuit(sub_graph, cell_lib, in_out_nodes)
@@ -907,9 +911,12 @@ def handle_fault_locations(auto_fl: bool, fi_model: dict,
                     fault_stage and d["node"].type not in filter_types)
             ]
             for node in nodes:
-                fault_locations.append(
-                    FaultLocation(location=node, stage=fault_stage,
-                                  mapping=""))
+                if len(graph.out_edges(node)) != 0 or len(
+                        graph.in_edges(node)) != 0:
+                    fault_locations.append(
+                        FaultLocation(location=node,
+                                      stage=fault_stage,
+                                      mapping=""))
 
     return fault_locations
 
@@ -963,7 +970,7 @@ def handle_fault_model(graph: nx.MultiDiGraph, fi_model_name: str,
     # Print fault model.
     logger.info(helpers.header)
     logger.info(
-        f"{datetime.now()}: Starting FI Injector for fault model {fi_model_name} with {fi_model['simultaneous_faults']} simultaneous faults."
+        f"{datetime.now()}: Starting! FI Injector for fault model {fi_model_name} with {fi_model['simultaneous_faults']} simultaneous faults."
     )
 
     # Open or create the target graph.
