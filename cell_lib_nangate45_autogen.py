@@ -135,7 +135,8 @@ gate_in_type = {
   'in_node': 'OTFI_I1',
   'output': 'OTFI_I1',
   'input': 'OTFI_I1',
-  'input_fault': 'OTFI_I1'
+  'input_fault': 'OTFI_I1',
+  'output_fault': 'OTFI_I1'
 }
 
 gate_in_type_out = {
@@ -420,7 +421,8 @@ gate_out_type = {
   'prim_buf': 'OTFI_I1',
   'prim_buf_fault': 'OTFI_I1',
   'input': 'OTFI_I1',
-  'input_fault': 'OTFI_I1'
+  'input_fault': 'OTFI_I1',
+  'output_fault': 'OTFI_I1'
 }
 
 out_type_pins = {
@@ -3002,6 +3004,21 @@ def output(inputs: dict, graph: nx.DiGraph, solver):
         solver.add_clause([-p['input_0'], p['node_name']])
         solver.add_clause([p['input_0'], -p['node_name']])
 
+def output_fault(inputs: dict, graph: nx.DiGraph, solver):
+    """ Out node.
+
+    Args:
+        inputs: {'input_0', 'node_name'}.
+        graph: The networkx graph of the circuit.
+
+    Returns:
+        ZN = !input_0.
+    """
+    print("output fault")
+    p = validate_generic_inputs(inputs, 2, "output_fault")
+    solver.add_clause([-p['input_0'], -p['node_name']])
+    solver.add_clause([p['input_0'], p['node_name']])
+
 cell_mapping = {
   'OR2_X4_ZN': OR2_X4_ZN,
   'OR2_X2_ZN': OR2_X2_ZN,
@@ -3113,6 +3130,7 @@ cell_mapping = {
   'prim_buf': prim_buf,
   'prim_buf_fault': prim_buf_inv,
   'input_fault_q_o': input_formula_QN,
+  'output_fault': output_fault,
   'input_rnd_ctr_q_i': input_formula_Q,
   'input_q_o': input_formula_Q,
   'input_Q': input_formula_Q,

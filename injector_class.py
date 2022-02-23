@@ -70,8 +70,7 @@ class FiInjector:
             # faulty nodes.
             nodes = [
                 n for n, d in self.target_graph.nodes(data=True)
-                if (d["node"].name == node_target and d["node"].stage == stage
-                    and d["node"].type != "output")
+                if (d["node"].name == node_target and d["node"].stage == stage)
             ]
             for node in nodes:
                 current_type = faulty_graph.nodes[node]["node"].type
@@ -312,8 +311,9 @@ class FiInjector:
         for node_target, ports in values.items():
             nodes = [
                 n for n, d in diff_graph.nodes(data=True)
-                if (d["node"].parent_name == node_target
-                    and d["node"].type == "output")
+                if (d["node"].parent_name == node_target and (
+                    d["node"].type == "output"
+                    or d["node"].type == "output_fault"))
             ]
             for node in nodes:
                 # Fetch the port/pin values provided in the FI model.

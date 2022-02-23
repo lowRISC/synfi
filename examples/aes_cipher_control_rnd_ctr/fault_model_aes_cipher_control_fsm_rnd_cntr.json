@@ -99,7 +99,8 @@
                 "AOI222_X1": ["OAI222_X1"],
                 "OAI222_X1": ["AOI222_X1"],
                 "DFFR_X1": ["prim_flop_fault"],
-                "input": ["input_fault"]
+                "input": ["input_fault"],
+                "output": ["output"]
             },
             "fault_locations": {
                 "U900": ["stage_1"]
