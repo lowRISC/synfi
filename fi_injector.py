@@ -99,6 +99,10 @@ def parse_arguments(argv):
     parser.add_argument("--store_target_graph",
                         action="store_true",
                         help="Write target graph as a .pickle file")
+    parser.add_argument(
+        "--ignore_registers",
+        action="store_true",
+        help="Speed up target graph extraction by ignoring registers")
     parser.add_argument("-l",
                         "--limit_faults",
                         dest="fault_limit",
@@ -240,7 +244,8 @@ def get_registers(graph: nx.MultiDiGraph, cell_lib: types.ModuleType) -> list:
 @ray.remote
 def extract_graph_between_nodes(graph: nx.MultiDiGraph, stages: list,
                                 stage_name: str, cell_lib: types.ModuleType,
-                                fi_model: dict) -> nx.MultiDiGraph:
+                                fi_model: dict,
+                                ignore_reg: bool) -> nx.MultiDiGraph:
     """ Extract the subgraph between two nodes.
 
     Args:
@@ -249,6 +254,7 @@ def extract_graph_between_nodes(graph: nx.MultiDiGraph, stages: list,
         stage_name: The current stage.
         cell_lib: The imported cell library.
         fi_model: The current fault model.
+        ignore_reg: Ignore registers to speed up target graph extraction.
 
     Returns:
         The subgraph between node_in and node_out.
@@ -260,10 +266,13 @@ def extract_graph_between_nodes(graph: nx.MultiDiGraph, stages: list,
         # Create a subgraph between in_node and out_node excluding other registers.
         registers = get_registers(graph, cell_lib)
         registers = get_registers(graph, cell_lib)
-        nodes_exclude = [
-            reg["node"].name for reg in registers
-            if reg["node"].name != (node_in or node_out)
-        ]
+        nodes_exclude = []
+        if ignore_reg:
+            nodes_exclude = [
+                reg["node"].name for reg in registers
+                if reg["node"].name != (node_in or node_out)
+            ]
+
         # If specified in the fault model, ignore cells.
         for exclude_cell in fi_model.get("exclude_cells_graph", []):
             for node in graph.nodes():
@@ -596,7 +605,7 @@ def connect_graphs(graph: nx.MultiDiGraph,
 
 def extract_stage_graphs(graph: nx.MultiDiGraph, fi_model: dict,
                          stage_name: str, cell_lib: types.ModuleType,
-                         num_cores: int) -> list:
+                         num_cores: int, ignore_reg: bool) -> list:
     """ Extract the stage graph.
 
     The stage graph is the graph between two nodes defined by the fault model.
@@ -607,6 +616,7 @@ def extract_stage_graphs(graph: nx.MultiDiGraph, fi_model: dict,
         stage_name: The name of the current stage.
         cell_lib: The imported cell library.
         num_cores: The number of cores to use for the FI.
+        ignore_reg: Ignore registers to speed up target graph extraction.
 
     Returns:
         The extracted stage graph.
@@ -628,7 +638,7 @@ def extract_stage_graphs(graph: nx.MultiDiGraph, fi_model: dict,
     # Use ray to distribute the extraction to num_cores processes.
     tasks = [
         extract_graph_between_nodes.remote(graph, stage_comb_share, stage_name,
-                                           cell_lib, fi_model)
+                                           cell_lib, fi_model, ignore_reg)
         for stage_comb_share in stage_comb_shares
     ]
 
@@ -702,8 +712,8 @@ def unroll_circuit(graph: nx.MultiDiGraph, cell_lib: types.ModuleType,
 
 
 def extract_graph(graph: nx.MultiDiGraph, fi_model: dict,
-                  cell_lib: types.ModuleType,
-                  num_cores: int) -> nx.MultiDiGraph:
+                  cell_lib: types.ModuleType, num_cores: int,
+                  ignore_reg: bool) -> nx.MultiDiGraph:
     """ Extract the subgraph containing all comb. and seq. logic of interest.
 
     The subgraphs between all input and output nodes defined in the fault model
@@ -714,6 +724,7 @@ def extract_graph(graph: nx.MultiDiGraph, fi_model: dict,
         fi_model: The active fault model.
         cell_lib: The imported cell library.
         num_cores: The number of cores to use for the FI.
+        ignore_reg: Ignore registers to speed up target graph extraction.
 
     Returns:
         The extracted subgraph of the original graph.
@@ -736,7 +747,7 @@ def extract_graph(graph: nx.MultiDiGraph, fi_model: dict,
         subgraph = copy.deepcopy(unrolled_graph)
         stage_name = stage
         stage_graph = extract_stage_graphs(subgraph, fi_model, stage_name,
-                                           cell_lib, num_cores)
+                                           cell_lib, num_cores, ignore_reg)
         # Rename the nodes to break dependencies between target graphs.
         rename_string = ("_" + stage_name)
         stage_graph = helpers.rename_nodes(stage_graph, rename_string, False)
@@ -940,7 +951,7 @@ def write_target_graph(graph: nx.MultiDiGraph,
 def handle_fault_model(graph: nx.MultiDiGraph, fi_model_name: str,
                        fi_model: dict, num_cores: int, auto_fl: bool,
                        fault_limit: int, sim_faults: int, store_target: bool,
-                       target_graph_stored: Path,
+                       target_graph_stored: Path, ignore_reg: bool,
                        cell_lib: types.ModuleType) -> list:
     """ Handles each fault model of the fault model specification file.
 
@@ -959,6 +970,7 @@ def handle_fault_model(graph: nx.MultiDiGraph, fi_model_name: str,
         sim_faults: The number of simultaneous faults.
         store_target: If true, store target graph to pickle file.
         target_graph_stored: If provided, load target graph instead of creating.
+        ignore_reg: Ignore registers to speed up target graph extraction.
         cell_lib: The imported cell library.
 
     Returns:
@@ -978,7 +990,8 @@ def handle_fault_model(graph: nx.MultiDiGraph, fi_model_name: str,
         target_graph = read_circuit(target_graph_stored)
     else:
         # Extract the target graph from the circuit.
-        target_graph = extract_graph(graph, fi_model, cell_lib, num_cores)
+        target_graph = extract_graph(graph, fi_model, cell_lib, num_cores,
+                                     ignore_reg)
 
     # Write the target graph to a pickle file.
     write_target_graph(target_graph, Path(fi_model_name), store_target)
@@ -1078,7 +1091,7 @@ def main(argv=None):
             handle_fault_model(graph, fi_model_name, fi_model, num_cores,
                                args.auto_fl, args.fault_limit, args.sim_faults,
                                args.store_target_graph, args.target_graph,
-                               cell_lib))
+                               args.ignore_registers, cell_lib))
     ray.shutdown()
     tstp_end = time.time()
     logger.info("fi_injector.py successful (%.2fs)" % (tstp_end - tstp_begin))
