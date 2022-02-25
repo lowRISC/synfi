@@ -1,0 +1,140 @@
+{
+    "fimodels": {
+        "ibex_if_stage_pc": {
+            "simultaneous_faults": 1,
+            "exclude_auto_fl": [
+
+            ],
+            "exclude_cells_graph": [
+                
+            ],
+            "stages": {
+                "stage_1": {
+                    "inputs": [
+                        "branch_target_ex_i"
+                    ],
+                    "outputs": [
+                        "pc_if_o"
+                    ],
+                    "type": "inout"
+                }
+            },
+            "node_fault_mapping": {
+                "AND4_X1": ["NAND4_X1"],
+                "AND2_X1": ["NAND2_X1"],
+                "DFF_X1": ["prim_flop_fault"],
+                "NAND2_X1": ["AND2_X1"],
+                "NAND3_X1": ["AND3_X1"],
+                "AND3_X1": ["NOR3_X1", "NAND3_X1", "OR3_X1"],
+                "OR3_X1": ["NOR3_X1", "NAND3_X1", "AND3_X1"],
+                "NOR3_X1": ["OR3_X1", "NAND3_X1", "AND3_X1"],
+                "NOR2_X1":  [ "NAND2_X1", "OR2_X1"],
+                "XOR2_X1": [ "NAND2_X1", "NOR2_X1", "OR2_X1"],
+                "XNOR2_X1": ["XOR2_X1", "NAND2_X1", "NOR2_X1"],
+                "INV_X1": ["INV_X1"],
+                "AOI21_X1": ["OAI21_X1"],
+                "OAI21_X1": ["AOI21_X1"],
+                "OAI22_X1": ["AOI22_X1"],
+                "AOI22_X1": ["OAI22_X1"],
+                "OAI211_X1": ["AOI211_X1"],
+                "AOI211_X1": ["OAI211_X1"],
+                "NOR4_X1": ["OR4_X1", "NAND4_X1"],
+                "OR2_X1": ["AND2_X1"],
+                "OR4_X1": ["NOR4_X1", "NAND4_X1"],
+                "NAND4_X1": ["AND4_X1"],
+                "OAI33_X1": ["OAI33_X1"],
+                "OAI221_X1": ["AOI221_X1"],
+                "AOI221_X1": ["OAI221_X1"],
+                "MUX2_X1": ["MUX2_X1"],
+                "AOI222_X1": ["OAI222_X1"],
+                "OAI222_X1": ["AOI222_X1"],
+                "DFFR_X1": ["prim_flop_fault"],
+                "input": ["input_fault"],
+                "output": ["output_fault"]
+            },
+            "fault_locations": {
+                "$abc$8281$auto$blifparse.cc:381:parse_blif$8542": ["stage_1"]
+            },
+            "output_values": {
+                "pc_if_o": {
+                    "pc_if_o": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0,
+                        "7": 1,
+                        "8": 0,
+                        "9": 0,
+                        "10": 0,
+                        "11": 0,
+                        "12": 0,
+                        "13": 0,
+                        "14": 0,
+                        "15": 0,
+                        "16": 0,
+                        "17": 0,
+                        "18": 0,
+                        "19": 0,
+                        "20": 0,
+                        "21": 0,
+                        "22": 0,
+                        "23": 0,
+                        "24": 0,
+                        "25": 0,
+                        "26": 0,
+                        "27": 0,
+                        "28": 0,
+                        "29": 0,
+                        "30": 0,
+                        "31": 0
+                    }
+                }
+            },
+            "input_values": {
+                "branch_target_ex_i": {
+                    "i": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0,
+                        "7": 0,
+                        "8": 0,
+                        "9": 0,
+                        "10": 0,
+                        "11": 0,
+                        "12": 0,
+                        "13": 0,
+                        "14": 0,
+                        "15": 0,
+                        "16": 0,
+                        "17": 0,
+                        "18": 0,
+                        "19": 0,
+                        "20": 0,
+                        "21": 0,
+                        "22": 0,
+                        "23": 0,
+                        "24": 0,
+                        "25": 0,
+                        "26": 0,
+                        "27": 0,
+                        "28": 0,
+                        "29": 0,
+                        "30": 0,
+                        "31": 0
+                    }
+                }
+            },
+            "alert_values": {
+
+            },
+            "output_fault_values": {}
+        }
+    }
+}

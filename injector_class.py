@@ -9,6 +9,7 @@ import sys
 
 import networkx as nx
 import ray
+from typing import DefaultDict
 from pysat.solvers import Minisat22
 
 import helpers
@@ -316,60 +317,77 @@ class FiInjector:
                     or d["node"].type == "output_fault"))
             ]
             for node in nodes:
+                # Check if all output ports are connected. If not connected
+                # ignore.
+                unconnected_ports = DefaultDict(list)
+                if len(diff_graph.in_edges(node)) != len(diff_graph.nodes[node]["node"].in_ports):
+                    for in_port in diff_graph.nodes[node]["node"].in_ports:
+                        for in_pin in in_port.pins:
+                            wire_connected = False
+                            for out_node, in_node, data in diff_graph.in_edges(node, data=True):
+                                if in_pin.wire == data["edge"].wire:
+                                    wire_connected = True
+                                    break
+                            if not wire_connected:
+                                unconnected_ports[in_port.name].append(in_pin.number)
                 # Fetch the port/pin values provided in the FI model.
                 for port_name, port in ports.items():
                     for pin_number, pin_value in port.items():
-                        # If the node consists of output edges in the orig.
-                        # graph, check the provided ports/pins.
-                        if self.graph.out_edges(node):
-                            self._check_port_pin(
-                                node, diff_graph.nodes[node]["node"].out_ports,
-                                port_name, pin_number)
-                        node_id = node + "_" + port_name + "_" + str(
-                            pin_number)
-                        if faulty:
-                            if "_faulty" in node:
-                                node_name = node_id + "_xor"
-                                node_type = "xor"
-                                if alert or exp_fault:
-                                    node_name = node_id + "_xnor_alert_exp"
-                                if alert or exp_fault:
+                        # Check if port and pin is connected. If not connected
+                        # skip.
+                        port_connected = True
+                        if port_name in unconnected_ports:
+                            if int(pin_number) in unconnected_ports[port_name]:
+                                port_connected = False
+                        if port_connected:
+                            # If the node consists of output edges in the orig.
+                            # graph, check the provided ports/pins.
+                            if self.graph.out_edges(node):
+                                self._check_port_pin(node, diff_graph.nodes[node]["node"].out_ports, port_name, pin_number)
+                            node_id = node + "_" + port_name + "_" + str(
+                                pin_number)
+                            if faulty:
+                                if "_faulty" in node:
+                                    node_name = node_id + "_xor"
+                                    node_type = "xor"
+                                    if alert or exp_fault:
+                                        node_name = node_id + "_xnor_alert_exp"
+                                    if alert or exp_fault:
+                                        node_type = "xnor"
+                                    out_nodes_added.append(node_name)
+                                    self._add_xor_xnor_nodes(
+                                        diff_graph_out_logic, node, pin_value,
+                                        node_name, node_type, port_name,
+                                        pin_number)
+                            else:
+                                if "_faulty" not in node:
+                                    node_name = node_id + "_xnor"
+                                    if alert:
+                                        node_name = node_id + "_xnor_alert"
                                     node_type = "xnor"
-                                out_nodes_added.append(node_name)
-                                self._add_xor_xnor_nodes(
-                                    diff_graph_out_logic, node, pin_value,
-                                    node_name, node_type, port_name,
-                                    pin_number)
-                        else:
-                            if "_faulty" not in node:
-                                node_name = node_id + "_xnor"
-                                if alert:
-                                    node_name = node_id + "_xnor_alert"
-                                node_type = "xnor"
-                                out_nodes_added.append(node_name)
-                                self._add_xor_xnor_nodes(
-                                    diff_graph_out_logic, node, pin_value,
-                                    node_name, node_type, port_name,
-                                    pin_number)
-                        # Update the in_ports and out_ports of the node.
-                        add_port = True
-                        for out_port in diff_graph_out_logic.nodes[node][
-                                "node"].out_ports:
-                            if out_port.name == port_name:
-                                out_port.pins.append(
-                                    NodePin(number=int(pin_number), wire=""))
-                                add_port = False
-                                break
-                        if add_port:
-                            diff_graph_out_logic.nodes[node][
-                                "node"].out_ports.append(
-                                    NodePort(type="output",
-                                             name=port_name,
-                                             pins=[
-                                                 NodePin(
-                                                     number=int(pin_number),
-                                                     wire="")
-                                             ]))
+                                    out_nodes_added.append(node_name)
+                                    self._add_xor_xnor_nodes(
+                                        diff_graph_out_logic, node, pin_value,
+                                        node_name, node_type, port_name,
+                                        pin_number)
+                            # Update the in_ports and out_ports of the node.
+                            add_port = True
+                            for out_port in diff_graph_out_logic.nodes[node][
+                                    "node"].out_ports:
+                                if out_port.name == port_name:
+                                    out_port.pins.append(NodePin(number=int(pin_number), wire=""))
+                                    add_port = False
+                                    break
+                            if add_port:
+                                diff_graph_out_logic.nodes[node][
+                                    "node"].out_ports.append(
+                                        NodePort(type="output",
+                                                name=port_name,
+                                                pins=[
+                                                    NodePin(
+                                                        number=int(pin_number),
+                                                        wire="")
+                                                ]))
 
         return out_nodes_added
 

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 one = 1
 zero = 2
 
-registers = {'DFFS_X1', 'DFFR_X1'}
+registers = {'DFFS_X1', 'DFFR_X1', 'DFFRS_X1', 'DFF_X2', 'DFF_X1', 'SDFFRS_X1', 'SDFFR_X1', 'SDFF_X1', 'SDFF_X2'}
 
 ge = {'OR2_X4': 3.0, 'OR2_X2': 1.6667, 'AND4_X4': 4.3333, 'OAI221_X1': 2.0, 'NOR4_X1': 1.6667, 'OR4_X4': 4.3333, 'NAND4_X2': 3.0, 'AOI222_X2': 4.6667, 'BUF_X8': 4.3333, 'MUX2_X2': 3.0, 'AND4_X2': 2.3333, 'AOI21_X4': 4.3333, 'CLKBUF_X3': 1.6667, 'INV_X2': 1.0, 'INV_X1': 0.6667, 'INV_X16': 5.6667, 'OAI222_X1': 2.6667, 'OAI21_X1': 1.3333, 'AOI221_X2': 3.6667, 'CLKBUF_X1': 1.0, 'NAND4_X1': 1.6667, 'OR4_X2': 2.3333, 'OR3_X2': 2.0, 'OAI33_X1': 2.3333, 'NAND4_X4': 6.0, 'NAND2_X2': 1.6667, 'OAI211_X4': 5.6667, 'TBUF_X2': 3.0, 'TBUF_X4': 3.6667, 'NAND3_X1': 1.3333, 'NOR3_X4': 4.6667, 'OAI211_X1': 1.6667, 'OAI222_X2': 4.6667, 'NOR3_X2': 2.3333, 'NAND2_X1': 1.0, 'BUF_X16': 8.3333, 'OAI21_X2': 2.3333, 'BUF_X1': 1.0, 'HA_X1': 3.3333, 'AOI221_X1': 2.0, 'OR3_X4': 3.6667, 'AOI22_X1': 1.6667, 'FA_X1': 5.3333, 'OR4_X1': 2.0, 'AOI222_X4': 4.6667, 'BUF_X32': 16.3333, 'XNOR2_X1': 2.0, 'INV_X4': 1.6667, 'AND2_X2': 1.6667, 'NAND2_X4': 3.0, 'OAI22_X4': 5.6667, 'XNOR2_X2': 3.3333, 'BUF_X4': 2.3333, 'AND2_X1': 1.3333, 'OAI221_X2': 3.6667, 'OAI211_X2': 3.0, 'TINV_X1': 1.3333, 'NAND3_X2': 2.3333, 'OR2_X1': 1.3333, 'AND3_X1': 1.6667, 'AOI21_X2': 2.3333, 'OAI21_X4': 4.3333, 'NOR2_X1': 1.0, 'AOI211_X1': 1.6667, 'AOI222_X1': 2.6667, 'INV_X8': 3.0, 'AOI211_X2': 3.0, 'NOR4_X4': 6.0, 'OAI22_X2': 3.0, 'AND4_X1': 2.0, 'TBUF_X1': 2.6667, 'AOI211_X4': 3.6667, 'MUX2_X1': 2.3333, 'OR3_X1': 1.6667, 'INV_X32': 11.0, 'OAI222_X4': 4.6667, 'BUF_X2': 1.3333, 'NAND3_X4': 4.3333, 'TBUF_X8': 6.0, 'TBUF_X16': 8.6667, 'NOR4_X2': 3.0, 'XOR2_X2': 3.0, 'OAI221_X4': 4.3333, 'NOR3_X1': 1.3333, 'AOI22_X4': 5.6667, 'AND2_X4': 3.0, 'CLKBUF_X2': 1.3333, 'AND3_X4': 3.6667, 'AOI21_X1': 1.3333, 'XOR2_X1': 2.0, 'NOR2_X2': 1.6667, 'OAI22_X1': 1.6667, 'AOI221_X4': 4.3333, 'AND3_X2': 2.0, 'NOR2_X4': 3.0, 'AOI22_X2': 3.0}
 
@@ -125,6 +125,7 @@ gate_in_type = {
   'AOI22_X2': 'A2B2',
   'prim_flop': 'OTFI_D1',
   'DFFR_X1': 'OTFI_D1',
+  'DFF_X1': 'OTFI_D1',
   'prim_flop_fault': 'OTFI_D1',
   'prim_buf': 'OTFI_I1',
   'prim_buf_fault': 'OTFI_I1',
@@ -240,6 +241,7 @@ gate_in_type_out = {
   'AOI22_X2_ZN': 'A2B2',
   'prim_flop': 'OTFI_D1',
   'DFFR_X1': 'OTFI_D1',
+  'DFF_X1': 'OTFI_D1',
   'prim_flop_fault': 'OTFI_D1',
   'prim_buf': 'OTFI_I1',
   'prim_buf_fault': 'OTFI_I1',
@@ -249,8 +251,11 @@ gate_in_type_out = {
   'input_formula': 'OTFI_I1',
   'in_node': 'OTFI_I1',
   'output': 'OTFI_I1',
+  'AND62': 'OTFI_A62',
   'AND54': 'OTFI_A54',
   'AND43': 'OTFI_A43',
+  'AND33': 'OTFI_A33',
+  'AND32': 'OTFI_A32',
   'AND28': 'OTFI_A28',
   'AND19': 'OTFI_A19',
   'AND15': 'OTFI_A15',
@@ -265,6 +270,8 @@ gate_in_type_out = {
   'AND3': 'OTFI_A3',
   'AND2': 'OTFI_A2',
   'OR40': 'OTFI_A40',
+  'OR32': 'OTFI_A32',
+  'OR31': 'OTFI_A31',
   'OR27': 'OTFI_A27',
   'OR10': 'OTFI_A10',
   'OR9': 'OTFI_A9',
@@ -312,9 +319,13 @@ in_type_pins = {
   'OTFI_A19': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'node_name'},
   'OTFI_A27': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A24', 'A25', 'A26', 'A27', 'node_name'},
   'OTFI_A28': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A24', 'A25', 'A26', 'A27', 'A28', 'node_name'},
+  'OTFI_A31': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A24', 'A25', 'A26', 'A27', 'A28', 'A29', 'A30', 'A31', 'node_name'},
+  'OTFI_A32': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A24', 'A25', 'A26', 'A27', 'A28', 'A29', 'A30', 'A31', 'A32', 'node_name'},
+  'OTFI_A33': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A24', 'A25', 'A26', 'A27', 'A28', 'A29', 'A30', 'A31', 'A32', 'A33', 'node_name'},
   'OTFI_A40': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A24', 'A25', 'A26', 'A27', 'A28', 'A29', 'A30', 'A31', 'A32', 'A33', 'A34', 'A35', 'A36', 'A37', 'A38', 'A39', 'A40', 'node_name'},
   'OTFI_A43': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A24', 'A25', 'A26', 'A27', 'A28', 'A29', 'A30', 'A31', 'A32', 'A33', 'A34', 'A35', 'A36', 'A37', 'A38', 'A39', 'A40', 'A41', 'A42', 'A43', 'node_name'},
   'OTFI_A54': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A24', 'A25', 'A26', 'A27', 'A28', 'A29', 'A30', 'A31', 'A32', 'A33', 'A34', 'A35', 'A36', 'A37', 'A38', 'A39', 'A40', 'A41', 'A42', 'A43', 'A44', 'A45', 'A46', 'A47', 'A48', 'A49', 'A50', 'A51', 'A52', 'A53', 'A54','node_name'},
+  'OTFI_A62': {'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A24', 'A25', 'A26', 'A27', 'A28', 'A29', 'A30', 'A31', 'A32', 'A33', 'A34', 'A35', 'A36', 'A37', 'A38', 'A39', 'A40', 'A41', 'A42', 'A43', 'A44', 'A45', 'A46', 'A47', 'A48', 'A49', 'A50', 'A51', 'A52', 'A53', 'A54', 'A55', 'A56', 'A57', 'A58', 'A59', 'A60', 'A61', 'A62', 'node_name'}
 }
 
 
@@ -417,10 +428,12 @@ gate_out_type = {
   'AOI22_X2': 'ZN1',
   'prim_flop': 'OTFI_D1',
   'DFFR_X1': 'OTFI_D1',
+  'DFF_X1': 'OTFI_D1',
   'prim_flop_fault': 'OTFI_D1',
   'prim_buf': 'OTFI_I1',
   'prim_buf_fault': 'OTFI_I1',
   'input': 'OTFI_I1',
+  'output': 'OTFI_I1',
   'input_fault': 'OTFI_I1',
   'output_fault': 'OTFI_I1'
 }
@@ -2505,6 +2518,95 @@ def and_output(inputs: dict, graph: nx.DiGraph, solver):
             -p['A18'], -p['A19'], -p['A20'], -p['A21'], -p['A22'], -p['A23'], -p['A24'], -p['A25'], -p['A26'], -p['A27'], -p['A28']
         ])
         solver.add_clause([p['node_name']])
+    elif len(inputs) == 33:
+        p = validate_inputs(inputs, graph, 'AND32')
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([p['A9'], -p['node_name']])
+        solver.add_clause([p['A10'], -p['node_name']])
+        solver.add_clause([p['A11'], -p['node_name']])
+        solver.add_clause([p['A12'], -p['node_name']])
+        solver.add_clause([p['A13'], -p['node_name']])
+        solver.add_clause([p['A14'], -p['node_name']])
+        solver.add_clause([p['A15'], -p['node_name']])
+        solver.add_clause([p['A16'], -p['node_name']])
+        solver.add_clause([p['A17'], -p['node_name']])
+        solver.add_clause([p['A18'], -p['node_name']])
+        solver.add_clause([p['A19'], -p['node_name']])
+        solver.add_clause([p['A20'], -p['node_name']])
+        solver.add_clause([p['A21'], -p['node_name']])
+        solver.add_clause([p['A22'], -p['node_name']])
+        solver.add_clause([p['A23'], -p['node_name']])
+        solver.add_clause([p['A24'], -p['node_name']])
+        solver.add_clause([p['A25'], -p['node_name']])
+        solver.add_clause([p['A26'], -p['node_name']])
+        solver.add_clause([p['A27'], -p['node_name']])
+        solver.add_clause([p['A28'], -p['node_name']])
+        solver.add_clause([p['A29'], -p['node_name']])
+        solver.add_clause([p['A30'], -p['node_name']])
+        solver.add_clause([p['A31'], -p['node_name']])
+        solver.add_clause([p['A32'], -p['node_name']])
+
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8'], -p['A9'], -p['A10'], -p['A11'],
+            -p['A12'], -p['A13'], -p['A14'], -p['A15'], -p['A16'], -p['A17'],
+            -p['A18'], -p['A19'], -p['A20'], -p['A21'], -p['A22'], -p['A23'], 
+            -p['A24'], -p['A25'], -p['A26'], -p['A27'], -p['A28'], -p['A29'],
+            -p['A30'], -p['A31'], -p['A32']
+        ])
+        solver.add_clause([p['node_name']])
+    elif len(inputs) == 34:
+        p = validate_inputs(inputs, graph, 'AND33')
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([p['A9'], -p['node_name']])
+        solver.add_clause([p['A10'], -p['node_name']])
+        solver.add_clause([p['A11'], -p['node_name']])
+        solver.add_clause([p['A12'], -p['node_name']])
+        solver.add_clause([p['A13'], -p['node_name']])
+        solver.add_clause([p['A14'], -p['node_name']])
+        solver.add_clause([p['A15'], -p['node_name']])
+        solver.add_clause([p['A16'], -p['node_name']])
+        solver.add_clause([p['A17'], -p['node_name']])
+        solver.add_clause([p['A18'], -p['node_name']])
+        solver.add_clause([p['A19'], -p['node_name']])
+        solver.add_clause([p['A20'], -p['node_name']])
+        solver.add_clause([p['A21'], -p['node_name']])
+        solver.add_clause([p['A22'], -p['node_name']])
+        solver.add_clause([p['A23'], -p['node_name']])
+        solver.add_clause([p['A24'], -p['node_name']])
+        solver.add_clause([p['A25'], -p['node_name']])
+        solver.add_clause([p['A26'], -p['node_name']])
+        solver.add_clause([p['A27'], -p['node_name']])
+        solver.add_clause([p['A28'], -p['node_name']])
+        solver.add_clause([p['A29'], -p['node_name']])
+        solver.add_clause([p['A30'], -p['node_name']])
+        solver.add_clause([p['A31'], -p['node_name']])
+        solver.add_clause([p['A32'], -p['node_name']])
+        solver.add_clause([p['A33'], -p['node_name']])
+
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8'], -p['A9'], -p['A10'], -p['A11'],
+            -p['A12'], -p['A13'], -p['A14'], -p['A15'], -p['A16'], -p['A17'],
+            -p['A18'], -p['A19'], -p['A20'], -p['A21'], -p['A22'], -p['A23'], 
+            -p['A24'], -p['A25'], -p['A26'], -p['A27'], -p['A28'], -p['A29'],
+            -p['A30'], -p['A31'], -p['A32'], -p['A33']
+        ])
+        solver.add_clause([p['node_name']])
     elif len(inputs) == 44:
         p = validate_inputs(inputs, graph, 'AND43')
         solver.add_clause([p['A1'], -p['node_name']])
@@ -2627,9 +2729,84 @@ def and_output(inputs: dict, graph: nx.DiGraph, solver):
             -p['A51'], -p['A52'], -p['A53'], -p['A54']
         ])
         solver.add_clause([p['node_name']])
+    elif len(inputs) == 63:
+        p = validate_inputs(inputs, graph, 'AND62')
+        solver.add_clause([p['A1'], -p['node_name']])
+        solver.add_clause([p['A2'], -p['node_name']])
+        solver.add_clause([p['A3'], -p['node_name']])
+        solver.add_clause([p['A4'], -p['node_name']])
+        solver.add_clause([p['A5'], -p['node_name']])
+        solver.add_clause([p['A6'], -p['node_name']])
+        solver.add_clause([p['A7'], -p['node_name']])
+        solver.add_clause([p['A8'], -p['node_name']])
+        solver.add_clause([p['A9'], -p['node_name']])
+        solver.add_clause([p['A10'], -p['node_name']])
+        solver.add_clause([p['A11'], -p['node_name']])
+        solver.add_clause([p['A12'], -p['node_name']])
+        solver.add_clause([p['A13'], -p['node_name']])
+        solver.add_clause([p['A14'], -p['node_name']])
+        solver.add_clause([p['A15'], -p['node_name']])
+        solver.add_clause([p['A16'], -p['node_name']])
+        solver.add_clause([p['A17'], -p['node_name']])
+        solver.add_clause([p['A18'], -p['node_name']])
+        solver.add_clause([p['A19'], -p['node_name']])
+        solver.add_clause([p['A20'], -p['node_name']])
+        solver.add_clause([p['A21'], -p['node_name']])
+        solver.add_clause([p['A22'], -p['node_name']])
+        solver.add_clause([p['A23'], -p['node_name']])
+        solver.add_clause([p['A24'], -p['node_name']])
+        solver.add_clause([p['A25'], -p['node_name']])
+        solver.add_clause([p['A26'], -p['node_name']])
+        solver.add_clause([p['A27'], -p['node_name']])
+        solver.add_clause([p['A28'], -p['node_name']])
+        solver.add_clause([p['A29'], -p['node_name']])
+        solver.add_clause([p['A30'], -p['node_name']])
+        solver.add_clause([p['A31'], -p['node_name']])
+        solver.add_clause([p['A32'], -p['node_name']])
+        solver.add_clause([p['A33'], -p['node_name']])
+        solver.add_clause([p['A34'], -p['node_name']])
+        solver.add_clause([p['A35'], -p['node_name']])
+        solver.add_clause([p['A36'], -p['node_name']])
+        solver.add_clause([p['A37'], -p['node_name']])
+        solver.add_clause([p['A38'], -p['node_name']])
+        solver.add_clause([p['A39'], -p['node_name']])
+        solver.add_clause([p['A40'], -p['node_name']])
+        solver.add_clause([p['A41'], -p['node_name']])
+        solver.add_clause([p['A42'], -p['node_name']])
+        solver.add_clause([p['A43'], -p['node_name']])
+        solver.add_clause([p['A44'], -p['node_name']])
+        solver.add_clause([p['A45'], -p['node_name']])
+        solver.add_clause([p['A46'], -p['node_name']])
+        solver.add_clause([p['A47'], -p['node_name']])
+        solver.add_clause([p['A48'], -p['node_name']])
+        solver.add_clause([p['A49'], -p['node_name']])
+        solver.add_clause([p['A50'], -p['node_name']])
+        solver.add_clause([p['A51'], -p['node_name']])
+        solver.add_clause([p['A52'], -p['node_name']])
+        solver.add_clause([p['A53'], -p['node_name']])
+        solver.add_clause([p['A54'], -p['node_name']])
+        solver.add_clause([p['A55'], -p['node_name']])
+        solver.add_clause([p['A56'], -p['node_name']])
+        solver.add_clause([p['A57'], -p['node_name']])
+        solver.add_clause([p['A58'], -p['node_name']])
+        solver.add_clause([p['A59'], -p['node_name']])
+        solver.add_clause([p['A60'], -p['node_name']])
+        solver.add_clause([p['A61'], -p['node_name']])
+        solver.add_clause([p['A62'], -p['node_name']])
+
+        solver.add_clause([
+            p['node_name'], -p['A1'], -p['A2'], -p['A3'], -p['A4'], -p['A5'],
+            -p['A6'], -p['A7'], -p['A8'], -p['A9'], -p['A10'], -p['A11'],
+            -p['A12'], -p['A13'], -p['A14'], -p['A15'], -p['A16'], -p['A17'],
+            -p['A18'], -p['A19'], -p['A20'], -p['A21'], -p['A22'], -p['A23'], -p['A24'], -p['A25'], -p['A26'], -p['A27'], -p['A28'],
+            -p['A29'], -p['A30'], -p['A31'], -p['A32'], -p['A33'], -p['A34'], -p['A35'], -p['A36'], -p['A37'], -p['A38'], -p['A39'],
+            -p['A40'], -p['A41'], -p['A42'], -p['A43'], -p['A44'], -p['A45'], -p['A46'], -p['A47'], -p['A48'], -p['A49'], -p['A50'],
+            -p['A51'], -p['A52'], -p['A53'], -p['A54'], -p['A55'], -p['A56'], -p['A57'], -p['A58'], -p['A59'], -p['A60'], -p['A61'], 
+            -p['A62']
+        ])
+        solver.add_clause([p['node_name']])
     else:
-        print(len(inputs))
-        raise Exception('Missing and gate for output logic.')
+        raise Exception(f'Missing and gate ({len(inputs)}) for output logic.')
 
 
 def or_output(inputs: dict, graph: nx.DiGraph, solver):
@@ -2780,6 +2957,87 @@ def or_output(inputs: dict, graph: nx.DiGraph, solver):
             p["A8"], p["A9"], p["A10"], p["A11"], p["A12"], p["A13"], p["A14"], p["A15"], p["A16"], p["A17"], 
             p["A18"], p["A19"], p["A20"], p["A21"], p["A22"], p["A23"], p["A24"], p["A25"], p["A26"], p["A27"], -p["node_name"]
         ])
+    elif len(inputs) == 32:
+        p = validate_inputs(inputs, graph, 'OR31')
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([-p["A7"], p["node_name"]])
+        solver.add_clause([-p["A8"], p["node_name"]])
+        solver.add_clause([-p["A9"], p["node_name"]])
+        solver.add_clause([-p["A10"], p["node_name"]])
+        solver.add_clause([-p["A11"], p["node_name"]])
+        solver.add_clause([-p["A12"], p["node_name"]])
+        solver.add_clause([-p["A13"], p["node_name"]])
+        solver.add_clause([-p["A14"], p["node_name"]])
+        solver.add_clause([-p["A15"], p["node_name"]])
+        solver.add_clause([-p["A16"], p["node_name"]])
+        solver.add_clause([-p["A17"], p["node_name"]])
+        solver.add_clause([-p["A18"], p["node_name"]])
+        solver.add_clause([-p["A19"], p["node_name"]])
+        solver.add_clause([-p["A20"], p["node_name"]])
+        solver.add_clause([-p["A21"], p["node_name"]])
+        solver.add_clause([-p["A22"], p["node_name"]])
+        solver.add_clause([-p["A23"], p["node_name"]])
+        solver.add_clause([-p["A24"], p["node_name"]])
+        solver.add_clause([-p["A25"], p["node_name"]])
+        solver.add_clause([-p["A26"], p["node_name"]])
+        solver.add_clause([-p["A27"], p["node_name"]])
+        solver.add_clause([-p["A28"], p["node_name"]])
+        solver.add_clause([-p["A29"], p["node_name"]])
+        solver.add_clause([-p["A30"], p["node_name"]])
+        solver.add_clause([-p["A31"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"], p["A7"],
+            p["A8"], p["A9"], p["A10"], p["A11"], p["A12"], p["A13"], p["A14"], 
+            p["A15"], p["A16"], p["A17"], p["A18"], p["A19"], p["A20"], p["A21"], 
+            p["A22"], p["A23"], p["A24"], p["A25"], p["A26"], p["A27"], p["A28"],
+            p["A29"], p["A30"], p["A31"], -p["node_name"]
+        ])
+    elif len(inputs) == 33:
+        p = validate_inputs(inputs, graph, 'OR32')
+        solver.add_clause([-p["A1"], p["node_name"]])
+        solver.add_clause([-p["A2"], p["node_name"]])
+        solver.add_clause([-p["A3"], p["node_name"]])
+        solver.add_clause([-p["A4"], p["node_name"]])
+        solver.add_clause([-p["A5"], p["node_name"]])
+        solver.add_clause([-p["A6"], p["node_name"]])
+        solver.add_clause([-p["A7"], p["node_name"]])
+        solver.add_clause([-p["A8"], p["node_name"]])
+        solver.add_clause([-p["A9"], p["node_name"]])
+        solver.add_clause([-p["A10"], p["node_name"]])
+        solver.add_clause([-p["A11"], p["node_name"]])
+        solver.add_clause([-p["A12"], p["node_name"]])
+        solver.add_clause([-p["A13"], p["node_name"]])
+        solver.add_clause([-p["A14"], p["node_name"]])
+        solver.add_clause([-p["A15"], p["node_name"]])
+        solver.add_clause([-p["A16"], p["node_name"]])
+        solver.add_clause([-p["A17"], p["node_name"]])
+        solver.add_clause([-p["A18"], p["node_name"]])
+        solver.add_clause([-p["A19"], p["node_name"]])
+        solver.add_clause([-p["A20"], p["node_name"]])
+        solver.add_clause([-p["A21"], p["node_name"]])
+        solver.add_clause([-p["A22"], p["node_name"]])
+        solver.add_clause([-p["A23"], p["node_name"]])
+        solver.add_clause([-p["A24"], p["node_name"]])
+        solver.add_clause([-p["A25"], p["node_name"]])
+        solver.add_clause([-p["A26"], p["node_name"]])
+        solver.add_clause([-p["A27"], p["node_name"]])
+        solver.add_clause([-p["A28"], p["node_name"]])
+        solver.add_clause([-p["A29"], p["node_name"]])
+        solver.add_clause([-p["A30"], p["node_name"]])
+        solver.add_clause([-p["A31"], p["node_name"]])
+        solver.add_clause([-p["A32"], p["node_name"]])
+        solver.add_clause([
+            p["A1"], p["A2"], p["A3"], p["A4"], p["A5"], p["A6"], p["A7"],
+            p["A8"], p["A9"], p["A10"], p["A11"], p["A12"], p["A13"], p["A14"], 
+            p["A15"], p["A16"], p["A17"], p["A18"], p["A19"], p["A20"], p["A21"], 
+            p["A22"], p["A23"], p["A24"], p["A25"], p["A26"], p["A27"], p["A28"],
+            p["A29"], p["A30"], p["A31"], p["A32"], -p["node_name"]
+        ])
     elif len(inputs) == 41:
         p = validate_inputs(inputs, graph, 'OR40')
         solver.add_clause([-p["A1"], p["node_name"]])
@@ -2830,7 +3088,7 @@ def or_output(inputs: dict, graph: nx.DiGraph, solver):
             p["A38"], p["A39"], p["A40"], -p["node_name"]
         ])
     else:
-        raise Exception('Missing or gate for output logic.')
+        raise Exception(f'Missing or gate ({len(inputs)}) for output logic.')
 
 def input_formula_Q(inputs: dict, graph: nx.DiGraph, solver):
     """ Sets a input pin to a predefined (0 or 1) value.
@@ -3004,6 +3262,7 @@ def output(inputs: dict, graph: nx.DiGraph, solver):
         solver.add_clause([-p['input_0'], p['node_name']])
         solver.add_clause([p['input_0'], -p['node_name']])
 
+
 def output_fault(inputs: dict, graph: nx.DiGraph, solver):
     """ Out node.
 
@@ -3014,7 +3273,6 @@ def output_fault(inputs: dict, graph: nx.DiGraph, solver):
     Returns:
         ZN = !input_0.
     """
-    print("output fault")
     p = validate_generic_inputs(inputs, 2, "output_fault")
     solver.add_clause([-p['input_0'], -p['node_name']])
     solver.add_clause([p['input_0'], p['node_name']])
@@ -3124,6 +3382,7 @@ cell_mapping = {
   'or_O': or_output,
   'prim_flop': prim_flop,
   'DFFS_X1_Q': prim_flop,
+  'DFF_X1_Q': prim_flop,
   'DFFR_X1_Q': prim_flop,
   'DFFR_X1_QN': prim_flop_inv,
   'prim_flop_fault': prim_flop_inv,
@@ -3131,11 +3390,16 @@ cell_mapping = {
   'prim_buf_fault': prim_buf_inv,
   'input_fault_q_o': input_formula_QN,
   'output_fault': output_fault,
+  'output_fault_pc_if_o': output_fault,
   'input_rnd_ctr_q_i': input_formula_Q,
+  'input_branch_target_ex_i': input_formula_Q,
   'input_q_o': input_formula_Q,
+  'input_instr_addr_i': input_formula_Q,
+  'input_instr_addr_shadow_i': input_formula_Q,
   'input_Q': input_formula_Q,
   'input_fault_Q': input_formula_QN,
   'input_fault_rnd_ctr_q_i': input_formula_QN,
+  'input_fault_branch_target_ex_i': input_formula_QN,
   'input_QN': input_formula_QN,
   'in_node_Q': in_node_Q,
   'in_node_q_o': in_node_Q,
@@ -3144,6 +3408,8 @@ cell_mapping = {
   'out_node_Q': out_node,
   'out_node_QN': out_node,
   'output_o': output,
+  'output_pc_if_o': output,
+  'output_i': output,
   'output_O': output,
   'output_q_o': output,
   'output_Q': output
