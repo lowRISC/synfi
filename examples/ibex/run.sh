@@ -36,4 +36,4 @@ $FI_INJECTOR    -p output/netlist_ibex_if_stage.pickle \
 $FI_INJECTOR    -p output/netlist_ibex_if_stage.pickle \
                 -f fault_model_ibex_if_stage_pc_target.json -n $N_CPUS \
                 -c $CELL_LIB --auto_fl \
-                -s 2 2>&1 | tee -a output/fault_model_ibex_if_stage_pc_target.log
+                -s 2 -l 10000 2>&1 | tee -a output/fault_model_ibex_if_stage_pc_target.log
