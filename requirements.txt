@@ -5,3 +5,4 @@ ray==1.7.0
 pathlib==1.0.1
 liberty-parser==0.0.11
 python-sat==0.1.7.dev14
+protobuf==3.20.*
