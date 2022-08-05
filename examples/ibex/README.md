@@ -1,5 +1,5 @@
 # System Requirements
-The tool was tested on Ubuntu 20.04 and requires Python3 and pip3.
+The tool was tested on Ubuntu 20.04 and requires Python3.9 and pip3.
 # Setup
 Clone the repository, switch to the directory, and install the dependencies:
 ```
