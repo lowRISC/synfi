@@ -22,8 +22,17 @@ $PARSER -j netlist_aes_cipher_control_flattened_ctr_reg.json \
         -m aes_cipher_control \
         -o output/netlist_aes_cipher_control_flattened.pickle
 
-
 $FI_INJECTOR    -p output/netlist_aes_cipher_control_flattened.pickle \
-                -f fault_model_aes_cipher_control_fsm_rnd_cntr.json -n $N_CPUS \
+                -f fault_model_aes_cipher_control_rnd_cntr.json -n $N_CPUS \
                 -c $CELL_LIB --auto_fl \
                 -s 1 2>&1 | tee -a output/aes_cipher_control_flattened.log
+
+$FI_INJECTOR    -p output/netlist_aes_cipher_control_flattened.pickle \
+                -f fault_model_aes_cipher_control_cntr.json -n $N_CPUS \
+                -c $CELL_LIB \
+                -s 2 2>&1 | tee -a output/aes_cipher_control_flattened.log
+
+$FI_INJECTOR    -p output/netlist_aes_cipher_control_flattened.pickle \
+                -f fault_model_aes_cipher_control_rnd_cntr.json -n $N_CPUS \
+                -c $CELL_LIB --auto_fl \
+                -s 2 2>&1 | tee -a output/aes_cipher_control_flattened.log
