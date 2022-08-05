@@ -1,6 +1,6 @@
 {
     "fimodels": {
-        "aes_cipher_control_fsm_rnd_cntr": {
+        "aes_cipher_control_rnd_cntr": {
             "simultaneous_faults": 1,
             "exclude_auto_fl": [
 
@@ -103,7 +103,8 @@
                 "output": ["output"]
             },
             "fault_locations": {
-                "U900": ["stage_1"]
+                "$abc$18095$auto$blifparse.cc:381:parse_blif$18243": ["stage_3"],
+                "$flatten\\gen_fsm[0].gen_fsm_p.u_aes_cipher_control_fsm_i.$abc$17856$auto$blifparse.cc:381:parse_blif$18019": ["stage_1"]
             },
             "output_values": {
                 "key_expand_round_o": {
