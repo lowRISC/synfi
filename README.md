@@ -27,7 +27,7 @@ module synthesized with the
 [provided](https://github.com/lowRISC/opentitan/tree/master/hw/ip/aes/pre_syn) 
 Yosys flow.
 
-The convert a cell library (e.g., the 
+To convert a cell library (e.g., the 
 [NANGATE45](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/tree/master/flow/platforms/nangate45/lib) library), 
 adapt the `examples/config.json` file and start the cell library generator:
 ```console
