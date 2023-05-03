@@ -3,7 +3,7 @@ numpy==1.24.2
 sympy==1.6.2
 ray==1.8.0
 pathlib==1.0.1
-liberty-parser==0.0.11
+liberty-parser==0.0.16
 python-sat==0.1.8.dev3
 protobuf==3.20.*
 mako==1.2.4
