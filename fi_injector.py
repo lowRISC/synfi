@@ -24,7 +24,7 @@ import numpy
 import ray
 
 import helpers
-from helpers import Edge, Node
+from helpers import Edge, Node, match
 from injector_class import FiInjector
 
 """Part of the fault injection framework for the OpenTitan.
@@ -223,7 +223,6 @@ def fault_combinations(graph: nx.MultiDiGraph, fault_locations: list,
 
     return fl_list
 
-
 def get_registers(graph: nx.MultiDiGraph, cell_lib: types.ModuleType) -> list:
     """Finds all registers in the graph.
 
@@ -236,7 +235,7 @@ def get_registers(graph: nx.MultiDiGraph, cell_lib: types.ModuleType) -> list:
     """
     registers = []
     for node in graph.nodes().values():
-        if ("node" in node) and (node["node"].type in cell_lib.registers):
+        if ("node" in node) and match(node["node"].type, cell_lib.registers):
             registers.append(node)
     return registers
 
@@ -264,7 +263,6 @@ def extract_graph_between_nodes(graph: nx.MultiDiGraph, stages: list,
         node_in = stage.node_in
         node_out = stage.node_out
         # Create a subgraph between in_node and out_node excluding other registers.
-        registers = get_registers(graph, cell_lib)
         registers = get_registers(graph, cell_lib)
         nodes_exclude = []
         if ignore_reg:
@@ -673,8 +671,7 @@ def unroll_circuit(graph: nx.MultiDiGraph, cell_lib: types.ModuleType,
     # Store the connectors which form a cycle.
     cycle_node_connectors = DefaultDict(list)
     for node, attribute in graph.nodes(data=True):
-        if attribute[
-                "node"].type in cell_lib.registers and node not in in_out_nodes:
+        if match(attribute["node"].type, cell_lib.registers) and node not in in_out_nodes:
             for reg_node_1, reg_node_r in graph.out_edges(node):
                 for reg_node_l, reg_node_2 in graph.in_edges(node):
                     if nx.has_path(graph, source=reg_node_r,
@@ -825,7 +822,7 @@ def evaluate_fault_results(results: list, fi_model: dict,
                     fault_location.location]["node"].parent_name
                 node_type = graph.nodes[node_name]["node"].type
                 if result.sat_result:
-                    if node_type in cell_lib.registers:
+                    if match(node_type, cell_lib.registers):
                         effective_faults_seq += 1
                     else:
                         effective_faults_comb += 1
@@ -871,7 +868,8 @@ def gen_fault_locations(fi_model: dict, graph: nx.MultiDiGraph,
         exclude_cells = fi_model["exclude_auto_fl"]
 
     for node, attribute in graph.nodes(data=True):
-        if attribute["node"].type not in filter_types:
+        # if attribute["node"].type not in filter_types:
+        if not match(attribute["node"].type, filter_types):
             exclude = False
             for exclude_cell in exclude_cells:
                 if exclude_cell in attribute["node"].parent_name:

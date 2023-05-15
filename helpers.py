@@ -5,6 +5,7 @@
 import argparse
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -233,3 +234,20 @@ def print_ports(ports: dict) -> None:
     logger.info(in_string)
     logger.info(out_string)
     logger.info(header)
+
+
+def match(node: str, filter_list: set) -> bool:
+    """Matches a given node against as list of regexes.
+
+    Args:
+        node: Node to be matched
+        filter_list: List/Set containing a list of regexes
+
+    Return:
+        True if node matches wit one of the regex in the filter list,
+        False otherwise.
+    """
+    for pattern in filter_list:
+        if re.match(pattern, node):
+            return True
+    return False
