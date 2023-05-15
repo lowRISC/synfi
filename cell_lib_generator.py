@@ -225,13 +225,10 @@ def parse_cells(cell_lib: dict, cell_types: list, cell_cfg: dict) -> list:
     cells = []
     area_nand2 = 0
     for cell_group in cell_lib.get_groups("cell"):
-        name = cell_group.args[0]
+        name = str(cell_group.args[0])
         area = cell_group["area"]
         if (not cell_types) or (name in cell_types):
-            if not ([
-                    True for exclude_cell in cell_cfg["exclude_cells"]
-                    if exclude_cell in str(name)
-            ]):
+            if not helpers.match(name, cell_cfg["exclude_cells"]):
                 inputs = []
                 outputs = []
                 for pin_group in cell_group.get_groups("pin"):
@@ -248,8 +245,7 @@ def parse_cells(cell_lib: dict, cell_types: list, cell_cfg: dict) -> list:
 
                 # Ignore cells without outputs or inputs, e.g., filler cells.
                 if inputs and outputs:
-                    name = str(name).replace('"', '')
-                    cell = Cell(name=name, inputs=inputs, outputs=outputs, area=area, ge=1)
+                    cell = Cell(name=name.replace('"', ''), inputs=inputs, outputs=outputs, area=area, ge=1)
                     cells.append(cell)
                     if name == cell_cfg["ref_nand"]:
                         area_nand2 = area
@@ -493,7 +489,7 @@ def handle_cells(cells: dict, num_cores: int) -> list:
         FormulaConverter.remote(cell_share) for cell_share in cell_shares
     ]
 
-    # Perform the attack and collect the results.
+    # Perform the cell parsing and collect the results.
     tasks = [worker.convert_formulas.remote() for worker in workers]
     results = ray.get(tasks)
     cell_formulas = [item for sublist in results for item in sublist]

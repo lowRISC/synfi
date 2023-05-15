@@ -1,6 +1,6 @@
 {
-    "reg": "{'DFFS_X1', 'DFFR_X1'}",
-    "exclude_cells": ["DFF", "DLL", "DLH", "TLAT"],
+    "reg": "{'DFF*', 'SDFF*'}",
+    "exclude_cells": ["DFF*", "SDFF*", "DL*", "TLAT*"],
     "ref_nand": "NAND2_X1",
     "port_in_mapping": {
         "A2B2": {
